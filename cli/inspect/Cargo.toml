@@ -11,13 +11,15 @@ repository = "https://github.com/paritytech/substrate/"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.2.0" }
+clap = { version = "3.1.6", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+thiserror = "1.0"
 derive_more = "0.99"
-sc-cli = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-client-api = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sc-executor = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077"}
-sc-service = { version = "0.10.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-blockchain = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-core = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-runtime = { version = "4.0.0-dev", git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23"}
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 structopt = "0.3.8"

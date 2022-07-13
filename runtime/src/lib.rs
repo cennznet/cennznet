@@ -92,6 +92,7 @@ pub use crml_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
 use pallet_evm::{Account as EVMAccount, EnsureAddressTruncated, EvmConfig, FeeCalculator, Runner};
+use sp_runtime::traits::DispatchInfoOf;
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -144,6 +145,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
+	state_version: 1,
 };
 
 /// The BABE epoch configuration at genesis.
@@ -162,9 +164,6 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 
-parameter_types! {
-	storage StateOracleIsActive: bool = false;
-}
 /// Prevent state oracle transactions from executing
 pub struct StateOracleCallFilter;
 impl frame_support::traits::Contains<Call> for StateOracleCallFilter {
@@ -262,6 +261,7 @@ impl frame_system::Config for Runtime {
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -328,6 +328,8 @@ parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		RuntimeBlockWeights::get().max_block;
 	pub const MaxScheduledPerBlock: u32 = 50;
+	// Retry a scheduled item every 10 blocks (50 seconds) until the preimage exists.
+	pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 impl pallet_scheduler::Config for Runtime {
 	type Event = Event;
@@ -339,6 +341,8 @@ impl pallet_scheduler::Config for Runtime {
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type WeightInfo = ();
+	type PreimageProvider = ();
+	type NoPreimagePostponement = NoPreimagePostponement;
 }
 
 parameter_types! {
@@ -595,6 +599,7 @@ impl pallet_treasury::Config for Runtime {
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ProposalBondMinimum;
+	type ProposalBondMaximum = ();
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
@@ -658,29 +663,28 @@ impl crml_eth_bridge::Config for Runtime {
 pub struct MinGasPriceGetter;
 impl frame_support::traits::Get<u64> for MinGasPriceGetter {
 	fn get() -> u64 {
-		BaseFee::min_gas_price().saturated_into()
+		BaseFee::min_gas_price().0.saturated_into()
 	}
 }
 parameter_types! {
 	/// The number of blocks a state oracle response can be challenged for
 	pub storage ChallengePeriod: BlockNumber = 5;
-	/// Fixed precompile address for the state oracle
-	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 	/// Minimum bond amount required for a relayer and challenger
 	pub storage RelayerBondAmount: Balance = 100_000_000;
 	/// Maximum requests allowed per block (Absolute max: 100)
 	pub storage MaxRequestsPerBlock: u32 = 30;
 	/// Maximum number of active relayers allowed at one time
 	pub storage MaxRelayerCount: u32 = 1;
+	/// Prevents State Oracle transactions from executing if false
+	pub storage StateOracleIsActive: bool = false;
 }
 impl crml_eth_state_oracle::Config for Runtime {
 	type AddressMapping = AddressMappingOf<Self>;
-	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type ChallengePeriod = ChallengePeriod;
 	type ContractExecutor = StateOracleCallbackExecutor<Self>;
-	type UnixTime = Timestamp;
 	type EthCallOracle = ();
 	type Event = Event;
+	type UnixTime = Timestamp;
 	type MultiCurrency = GenericAsset;
 	type MinGasPrice = MinGasPriceGetter;
 	type GasWeightMapping = CENNZnetGasWeightMapping;
@@ -688,6 +692,7 @@ impl crml_eth_state_oracle::Config for Runtime {
 	type RelayerBondAmount = RelayerBondAmount;
 	type MaxRequestsPerBlock = MaxRequestsPerBlock;
 	type MaxRelayerCount = MaxRelayerCount;
+	type StateOracleIsActive = StateOracleIsActive;
 }
 
 impl crml_token_approvals::Config for Runtime {
@@ -830,7 +835,7 @@ impl pallet_evm::Config for Runtime {
 
 impl pallet_ethereum::Config for Runtime {
 	type Event = Event;
-	type StateRoot = pallet_ethereum::IntermediateStateRoot;
+	type StateRoot = pallet_ethereum::IntermediateStateRoot<Runtime>;
 }
 
 pub struct TransactionConverter;
@@ -1181,7 +1186,7 @@ impl_runtime_apis! {
 		   collection_id: CollectionId,
 		   series_id: SeriesId,
 		   serial_number: SerialNumber,
-		) -> TokenInfo<AccountId> {
+		) -> Option<TokenInfo<AccountId>> {
 		   Nft::token_info(collection_id, series_id, serial_number)
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
@@ -1265,11 +1270,11 @@ impl_runtime_apis! {
 		fn account_basic(address: H160) -> EVMAccount {
 	  // this balance is scaled up so that eth tooling expecting an 18dp asset
 	  // is compatible with the 4dp cpay value
-			EVM::account_basic(&address)
+			EVM::account_basic(&address).0
 		}
 
 		fn gas_price() -> U256 {
-			BaseFee::min_gas_price()
+			BaseFee::min_gas_price().0
 		}
 
 		fn account_code_at(address: H160) -> Vec<u8> {
@@ -1316,8 +1321,10 @@ impl_runtime_apis! {
 				max_priority_fee_per_gas,
 				nonce,
 				access_list.unwrap_or_default(),
+				false,
+				false,
 				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
-			).map_err(|err| err.into())
+			).map_err(|err| err.error.into())
 		}
 
 		fn create(
@@ -1348,8 +1355,10 @@ impl_runtime_apis! {
 				max_priority_fee_per_gas,
 				nonce,
 				access_list.unwrap_or_default(),
+				false,
+				false,
 				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
-			).map_err(|err| err.into())
+			).map_err(|err| err.error.into())
 		}
 
 		fn current_transaction_statuses() -> Option<Vec<TransactionStatus>> {
@@ -1465,9 +1474,20 @@ impl fp_self_contained::SelfContainedCall for Call {
 		}
 	}
 
-	fn validate_self_contained(&self, signed_info: &Self::SignedInfo) -> Option<TransactionValidity> {
+	fn validate_self_contained(
+		&self,
+		signed_info: &Self::SignedInfo,
+		dispatch_info: &DispatchInfoOf<Self>,
+		len: usize,
+	) -> Option<TransactionValidity> {
 		match self {
-			Call::Ethereum(ref call) => Some(validate_self_contained_inner(&self, &call, signed_info)),
+			Call::Ethereum(ref call) => Some(validate_self_contained_inner(
+				&self,
+				&call,
+				signed_info,
+				dispatch_info,
+				len,
+			)),
 			_ => None,
 		}
 	}
@@ -1496,6 +1516,8 @@ fn validate_self_contained_inner(
 	call: &Call,
 	eth_call: &pallet_ethereum::Call<Runtime>,
 	signed_info: &<Call as fp_self_contained::SelfContainedCall>::SignedInfo,
+	dispatch_info: &DispatchInfoOf<Call>,
+	len: usize,
 ) -> TransactionValidity {
 	if let pallet_ethereum::Call::transact { ref transaction } = eth_call {
 		// Previously, ethereum transactions were contained in an unsigned
@@ -1511,7 +1533,7 @@ fn validate_self_contained_inner(
 		let extra_validation = SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
 		// Then, do the controls defined by the ethereum pallet.
 		let self_contained_validation = eth_call
-			.validate_self_contained(signed_info)
+			.validate_self_contained(signed_info, dispatch_info, len)
 			.ok_or(TransactionValidityError::Invalid(InvalidTransaction::BadProof))??;
 
 		Ok(extra_validation.combine_with(self_contained_validation))

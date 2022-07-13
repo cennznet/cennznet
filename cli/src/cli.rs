@@ -1,6 +1,6 @@
+use clap::Parser;
 pub use sc_cli::Result;
 use sc_cli::{Error, KeySubcommand, SignCmd, VanityCmd, VerifyCmd};
-use structopt::StructOpt;
 
 /// Parse `uri`
 fn parse_uri(uri: &str) -> Result<String> {
@@ -9,51 +9,70 @@ fn parse_uri(uri: &str) -> Result<String> {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct RunCmd {
 	#[allow(missing_docs)]
-	#[structopt(flatten)]
+	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
 
 	/// Maximum number of logs in a query.
-	#[structopt(long, default_value = "10000")]
+	#[clap(long, default_value = "10000")]
 	pub max_past_logs: u32,
 
 	/// Maximum fee history cache size.
-	#[structopt(long, default_value = "2048")]
+	#[clap(long, default_value = "2048")]
 	pub fee_history_limit: u64,
 
 	/// The dynamic-fee pallet target gas price set by block author
-	#[structopt(long, default_value = "1")]
+	#[clap(long, default_value = "1")]
 	pub target_gas_price: u64,
 
 	/// Ethereum JSON-RPC client endpoint
-	#[structopt(parse(try_from_str = parse_uri), long = "eth-http", about = "Ethereum client JSON-RPC endpoint")]
+	#[clap(
+		parse(try_from_str = parse_uri),
+		long = "eth-http",
+	)]
 	pub eth_http: Option<String>,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
+#[clap(
+	propagate_version = true,
+	args_conflicts_with_subcommands = true,
+	subcommand_negates_reqs = true
+)]
 pub struct Cli {
-	#[structopt(subcommand)]
+	#[clap(subcommand)]
 	pub subcommand: Option<Subcommand>,
-	#[structopt(flatten)]
+	#[clap(flatten)]
 	pub run: RunCmd,
+
+	/// Disable automatic hardware benchmarks.
+	///
+	/// By default these benchmarks are automatically ran at startup and measure
+	/// the CPU speed, the memory bandwidth and the disk speed.
+	///
+	/// The results are then printed out in the logs, and also sent as part of
+	/// telemetry, if telemetry is enabled.
+	#[clap(long)]
+	pub no_hardware_benchmarks: bool,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
 	/// Key management cli utilities
+	#[clap(subcommand)]
 	Key(KeySubcommand),
 
 	/// The custom inspect subcommmand for decoding blocks and extrinsics.
-	#[structopt(
+	#[clap(
 		name = "inspect",
 		about = "Decode given block or extrinsic using current native runtime."
 	)]
 	Inspect(node_inspect::cli::InspectCmd),
 
 	/// The custom benchmark subcommmand benchmarking runtime pallets.
-	#[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
+	#[clap(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
 	/// Try some command against runtime state.

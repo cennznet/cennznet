@@ -33,7 +33,7 @@ use sp_runtime::{
 	testing::{Header, TestXt, UintAuthorityId},
 	traits::{IdentityLookup, One, Zero},
 };
-use sp_staking::offence::{OffenceDetails, OnOffenceHandler};
+use sp_staking::offence::OffenceDetails;
 use std::{
 	cell::RefCell,
 	collections::{BTreeMap, HashSet},
@@ -217,6 +217,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -530,7 +531,7 @@ impl ExtBuilder {
 			});
 		}
 		let _ = crate::GenesisConfig::<Test> {
-			stakers,
+			stakers: stakers,
 			validator_count: self.validator_count,
 			minimum_bond: self.minimum_bond,
 			minimum_validator_count: self.minimum_validator_count,
@@ -891,11 +892,7 @@ pub(crate) fn horrible_npos_solution(do_reduce: bool) -> (CompactAssignments, Ve
 		let support = to_supports(&staked_assignment);
 		let score = (&support).evaluate();
 
-		assert!(sp_npos_elections::is_score_better::<Perbill>(
-			better_score,
-			score,
-			MinSolutionScoreBump::get(),
-		));
+		assert!(better_score.strict_threshold_better(score, MinSolutionScoreBump::get()));
 
 		score
 	};

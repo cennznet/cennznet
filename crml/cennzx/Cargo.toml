@@ -5,23 +5,23 @@ authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 
 [dependencies]
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true, default-features = false }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-generic-asset = { path = "../generic-asset", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-frame-benchmarking = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, optional = true }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false, optional = true }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
 
 [dev-dependencies]
 cennznet-runtime = { path = "../../runtime" }
-sp-keyring = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 
 [features]
 default = ["std"]

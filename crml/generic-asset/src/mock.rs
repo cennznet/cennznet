@@ -22,7 +22,7 @@
 
 use super::*;
 use crate::{self as crml_generic_asset, impls::TransferDustImbalance, NegativeImbalance, PositiveImbalance};
-use frame_support::{parameter_types, PalletId};
+use frame_support::{parameter_types, traits::ConstU32, PalletId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -97,6 +97,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {

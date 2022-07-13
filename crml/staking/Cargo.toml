@@ -1,43 +1,44 @@
 [package]
 name = "crml-staking"
-version = "2.0.0"
+version = "2.0.1"
 authors = ["Parity Technologies <admin@parity.io>", "Centrality Developers <support@centrality.ai>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/cennznet/cennznet"
 description = "CENNZnet staking pallet"
 
 [dependencies]
 static_assertions = "1.1.0"
 serde = { version = "1.0.102", optional = true, default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-frame-support = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-frame-system = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-authorship = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-application-crypto = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-io = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-npos-elections = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-staking = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-std = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+frame-election-provider-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+pallet-authorship = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+pallet-session = { default-features = false, features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+pallet-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-npos-elections = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 crml-support = { default-features = false, path = "../support" }
 
 [dev-dependencies]
 hex = "0.4"
-parking_lot = "0.11.1"
+parking_lot = "0.12.1"
 rand_chacha = { version = "0.2" }
-pallet-balances = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-staking-reward-curve = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-pallet-timestamp = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 crml-generic-asset = { path = "../generic-asset" }
 crml-support = { path = "../support" }
-sp-storage = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-tracing = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-substrate-test-utils = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sp-storage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 
 [features]
 migrate = []

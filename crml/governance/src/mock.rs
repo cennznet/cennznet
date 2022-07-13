@@ -38,7 +38,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Scheduler: pallet_scheduler::{Pallet, Call, Config, Storage, Event<T>},
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
 		GenericAsset: crml_generic_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Governance: crml_governance::{Pallet, Call, Storage, Event},
 	}
@@ -73,6 +73,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -89,7 +90,7 @@ impl crml_generic_asset::Config for Test {
 parameter_types! {
 	pub const MaxScheduledPerBlock: u32 = 50;
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * 100;
-
+	pub const NoPreimagePostponement: Option<u64> = Some(2);
 }
 impl pallet_scheduler::Config for Test {
 	type Event = Event;
@@ -101,6 +102,8 @@ impl pallet_scheduler::Config for Test {
 	type MaxScheduledPerBlock = ();
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+	type PreimageProvider = ();
+	type NoPreimagePostponement = NoPreimagePostponement;
 }
 
 pub struct MockStakingAmount;
@@ -170,7 +173,7 @@ impl ExtBuilder {
 			.into();
 
 		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default(), frame_system::InitKind::Full);
+			System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		});
 
 		ext

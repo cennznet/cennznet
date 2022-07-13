@@ -8,21 +8,21 @@ repository = "https://github.com/cennznet/cennznet"
 description = "A runtime module for decentralized governance of the CENNZnet protocol"
 
 [dependencies]
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 serde = { version = "1.0.102", optional = true, default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-pallet-scheduler = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false  }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false  }
 
 [dev-dependencies]
 crml-generic-asset = { path = "../generic-asset"}
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077"}
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077"}
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23"}
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23"}
 
 [features]
 default = ["std"]

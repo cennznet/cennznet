@@ -17,17 +17,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use cennznet_primitives::types::AssetId;
-use crml_erc20_peg::types::WithdrawCallOrigin;
-use fp_evm::{Context, ExitSucceed, PrecompileOutput};
+use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileOutput};
 use pallet_evm::{AddressMapping, ExitRevert, Precompile};
-use pallet_evm_precompiles_erc20::Erc20IdConversion;
-use precompile_utils::{
-	Address, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, PrecompileFailure, RuntimeHelper,
-};
 use sp_core::{H160, U256};
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_std::marker::PhantomData;
+
+use cennznet_primitives::types::AssetId;
+use crml_erc20_peg::types::WithdrawCallOrigin;
+use pallet_evm_precompiles_erc20::Erc20IdConversion;
+use precompile_utils::prelude::*;
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -47,27 +46,18 @@ where
 		+ pallet_evm::Config
 		+ Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
-	fn execute(
-		input: &[u8],
-		target_gas: Option<u64>,
-		context: &Context,
-		is_static: bool,
-	) -> EvmResult<PrecompileOutput> {
-		let mut gasometer = Gasometer::new(target_gas);
-		let gasometer = &mut gasometer;
-
-		let (mut input, selector) = match EvmDataReader::new_with_selector(gasometer, input) {
-			Ok((input, selector)) => (input, selector),
-			Err(err) => return Err(err),
+	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e),
 		};
-		let input = &mut input;
 
-		if let Err(err) = gasometer.check_function_modifier(context, is_static, FunctionModifier::NonPayable) {
+		if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
 			return Err(err);
 		}
 
 		match selector {
-			Action::Withdraw => Self::withdraw(input, gasometer, &context.caller),
+			Action::Withdraw => Self::withdraw(handle),
 		}
 	}
 }
@@ -86,17 +76,19 @@ where
 		+ Erc20IdConversion<EvmId = Address, RuntimeId = AssetId>,
 {
 	/// erc20-peg withdrawal
-	fn withdraw(input: &mut EvmDataReader, gasometer: &mut Gasometer, caller: &H160) -> EvmResult<PrecompileOutput> {
+	fn withdraw(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// Parse input.
-		input.expect_arguments(gasometer, 3)?;
-		let withdraw_asset: Address = input.read::<Address>(gasometer)?.into();
-		// the given `input_asset` address is not a valid (derived) generic asset address
-		let asset_id = T::evm_id_to_runtime_id(withdraw_asset).ok_or(gasometer.revert("unsupported asset"))?;
-		let withdraw_amount: U256 = input.read::<U256>(gasometer)?.into();
-		let beneficiary: H160 = input.read::<Address>(gasometer)?.into();
+		let mut input = handle.read_input()?;
+		input.expect_arguments(3)?;
 
-		gasometer.record_cost(RuntimeHelper::<T>::db_read_gas_cost() * 6)?;
-		let caller: T::AccountId = T::AddressMapping::into_account_id(*caller);
+		let withdraw_asset: Address = input.read::<Address>()?.into();
+		// the given `input_asset` address is not a valid (derived) generic asset address
+		let asset_id = T::evm_id_to_runtime_id(withdraw_asset).ok_or(revert("unsupported asset"))?;
+		let withdraw_amount: U256 = input.read::<U256>()?.into();
+		let beneficiary: H160 = input.read::<Address>()?.into();
+
+		handle.record_cost(RuntimeHelper::<T>::db_read_gas_cost() * 6)?;
+		let caller: T::AccountId = T::AddressMapping::into_account_id(handle.context().caller);
 		let event_proof_id = crml_erc20_peg::Module::<T>::do_withdrawal(
 			caller,
 			asset_id,
@@ -109,16 +101,13 @@ where
 		match event_proof_id {
 			Ok(proof_id) => Ok(PrecompileOutput {
 				exit_status: ExitSucceed::Returned,
-				cost: gasometer.used_gas(),
 				output: EvmDataWriter::new().write(U256::from(proof_id)).build(),
-				logs: Default::default(),
 			}),
 			Err(err) => Err(PrecompileFailure::Revert {
 				exit_status: ExitRevert::Reverted,
 				output: alloc::format!("withdraw failed: {:?}", err.stripped())
 					.as_bytes()
 					.to_vec(),
-				cost: gasometer.used_gas(),
 			}),
 		}
 	}

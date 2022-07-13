@@ -91,7 +91,7 @@ decl_storage! {
 		pub TransactionFeePotHistory get(fn transaction_fee_pot_history): VecDeque<BalanceOf<T>>;
 		/// Where the reward payment should be made. Keyed by stash.
 		// TODO: migrate to blake2 to prevent trie unbalancing
-		pub Payee: map hasher(twox_64_concat) T::AccountId => T::AccountId;
+		pub Payee: map hasher(twox_64_concat) T::AccountId => Option<T::AccountId>;
 		/// Scheduled payout amounts keyed by (era, validator stash)
 		pub ScheduledPayoutAmounts: double_map hasher(twox_64_concat) EraIndex, hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
 		/// Scheduled payout eras and # of payouts to be made
@@ -204,7 +204,7 @@ decl_module! {
 impl<T: Config> NotarizationRewardHandler for Module<T> {
 	type AccountId = T::AccountId;
 	fn reward_notary(notary: &Self::AccountId) {
-		Self::reward_by_ids(vec![(notary.clone(), 8)])
+		Self::reward_by_ids(vec![(Some(notary.clone()), 8)])
 	}
 }
 
@@ -217,10 +217,10 @@ where
 	T: Config + pallet_authorship::Config,
 {
 	fn note_author(author: T::AccountId) {
-		Self::reward_by_ids(vec![(author, 20)])
+		Self::reward_by_ids(vec![(Some(author), 20)])
 	}
 	fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
-		Self::reward_by_ids(vec![(<pallet_authorship::Pallet<T>>::author(), 2), (author, 1)])
+		Self::reward_by_ids(vec![(<pallet_authorship::Pallet<T>>::author(), 2), (Some(author), 1)])
 	}
 }
 
@@ -246,7 +246,7 @@ impl<T: Config> OnEndEra for Module<T> {
 
 		// Deduct taxes from network spending
 		let _ = T::CurrencyToReward::deposit_creating(
-			&T::TreasuryPalletId::get().into_account(),
+			&T::TreasuryPalletId::get().into_account_truncating(),
 			next_reward.treasury_cut + remainder,
 		);
 
@@ -318,14 +318,12 @@ impl<T: Config> HandlePayee for Module<T> {
 
 	/// Return the payee account for the given stash account.
 	fn payee(stash: &T::AccountId) -> Self::AccountId {
-		let payee = Payee::<T>::get(stash);
-
-		// a default value means it's unset, just return the stash
+		// if payee is unset, just return the stash
 		// note this shouldn't occur in practice, this is useful for tests
-		if payee == T::AccountId::default() {
-			stash.clone()
-		} else {
+		if let Some(payee) = Payee::<T>::get(stash) {
 			payee
+		} else {
+			stash.clone()
 		}
 	}
 }
@@ -378,7 +376,7 @@ impl<T: Config> Module<T> {
 			Self::deposit_event(RawEvent::EraStakerPayout(era, stash, amount));
 		}
 		let remainder = total_payout.saturating_sub(total_payout_imbalance.peek());
-		T::CurrencyToReward::deposit_creating(&T::TreasuryPalletId::get().into_account(), remainder);
+		T::CurrencyToReward::deposit_creating(&T::TreasuryPalletId::get().into_account_truncating(), remainder);
 	}
 
 	/// Given a list of validator stashes, calculate the value of stake reward for
@@ -557,11 +555,13 @@ impl<T: Config> Module<T> {
 	/// relatively to their points.
 	///
 	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
-	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (Option<T::AccountId>, u32)>) {
 		<CurrentEraRewardPoints<T>>::mutate(|era_rewards| {
 			for (validator, points) in validators_points.into_iter() {
-				*era_rewards.individual.entry(validator).or_default() += points;
-				era_rewards.total += points;
+				if let Some(v) = validator {
+					*era_rewards.individual.entry(v).or_default() += points;
+					era_rewards.total += points;
+				}
 			}
 		});
 	}
@@ -635,6 +635,7 @@ mod tests {
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 		type OnSetCode = ();
+		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
 	impl crml_generic_asset::Config for Test {
@@ -728,7 +729,7 @@ mod tests {
 
 			let mut ext = sp_io::TestExternalities::from(storage);
 			ext.execute_with(|| {
-				System::initialize(&1, &[0u8; 32].into(), &Default::default(), Default::default());
+				System::initialize(&1, &[0u8; 32].into(), &Default::default());
 				Rewards::new_fiscal_era();
 			});
 
@@ -1136,7 +1137,7 @@ mod tests {
 	#[test]
 	fn reward_from_authorship_event_handler_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
+			assert_eq!(<pallet_authorship::Pallet<Test>>::author(), Some(11));
 
 			Rewards::note_author(11);
 			Rewards::note_uncle(21, 1);
@@ -1164,7 +1165,12 @@ mod tests {
 			let alice: AccountId = 11;
 			let bob: AccountId = 21;
 			let charlie: AccountId = 31;
-			Rewards::reward_by_ids(vec![(bob, 1), (alice, 1), (charlie, 1), (alice, 1)]);
+			Rewards::reward_by_ids(vec![
+				(Some(bob), 1),
+				(Some(alice), 1),
+				(Some(charlie), 1),
+				(Some(alice), 1),
+			]);
 
 			let reward_points: Vec<RewardPoint> = <CurrentEraRewardPoints<Test>>::get()
 				.individual
@@ -1185,7 +1191,7 @@ mod tests {
 			let stake_map_3 =
 				MockCommissionStakeInfo::new((3, 3_000), vec![(5, 1_000), (6, 2_000)], Perbill::from_percent(2));
 
-			Rewards::reward_by_ids(vec![(1, 30), (2, 50), (3, 20)]);
+			Rewards::reward_by_ids(vec![(Some(1), 30), (Some(2), 50), (Some(3), 20)]);
 
 			assert_ok!(Rewards::set_inflation_rate(Origin::root(), 1, 20));
 			Rewards::new_fiscal_era();
@@ -1256,7 +1262,7 @@ mod tests {
 			assert_eq!(Rewards::payee(&4), 5);
 
 			Rewards::note_transaction_fees(1000);
-			Rewards::reward_by_ids(vec![(1, 20)]);
+			Rewards::reward_by_ids(vec![(Some(1), 20)]);
 
 			assert!(
 				Rewards::calculate_individual_reward(
@@ -1556,7 +1562,7 @@ mod tests {
 			// remainder to treasury
 			assert!(remainder > 0);
 			assert_eq!(
-				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account_truncating()),
 				remainder
 			);
 
@@ -1581,7 +1587,7 @@ mod tests {
 
 			// treasury is paid
 			assert_eq!(
-				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account()),
+				<Test as Config>::CurrencyToReward::free_balance(&TreasuryPalletId::get().into_account_truncating()),
 				// +1 is the remainder from after stakers cut distribution
 				next_reward.treasury_cut + 1
 			);

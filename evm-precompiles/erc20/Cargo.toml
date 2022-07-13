@@ -6,19 +6,19 @@ edition = "2018"
 repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-generic-asset = { path = "../../crml/generic-asset", default-features = false }
 crml-token-approvals = { path = "../../crml/token-approvals", default-features = false }
-fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
+fp-evm = { default-features = false, git = "https://github.com/cennznet/frontier", branch = "polkadot-v0.9.23" }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", branch = "polkadot-v0.9.23" }
 precompile-utils = { path = "../utils", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false, version = "4.0.0-dev" }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
 
 [features]

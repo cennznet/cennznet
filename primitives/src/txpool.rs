@@ -15,6 +15,7 @@ pub struct TxPoolResponseLegacy {
 
 /// Ethereum tx pool response
 #[derive(Eq, PartialEq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "with-codec", derive(Encode, Decode))]
 pub struct TxPoolResponse {
 	/// transactions in the ready state
 	pub ready: Vec<Transaction>,

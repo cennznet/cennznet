@@ -55,7 +55,9 @@ use frame_support::{
 	decl_module, decl_storage,
 	dispatch::DispatchResult,
 	pallet_prelude::*,
-	weights::{DispatchInfo, GetDispatchInfo, PostDispatchInfo, WeightToFeeCoefficient, WeightToFeePolynomial},
+	weights::{
+		DispatchInfo, GetDispatchInfo, PostDispatchInfo, WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial,
+	},
 	Parameter,
 };
 use sp_arithmetic::traits::BaseArithmetic;
@@ -67,7 +69,7 @@ use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
-	DispatchError, FixedPointNumber, FixedPointOperand, FixedU128, Perquintill, RuntimeDebug,
+	DispatchError, FixedPointNumber, FixedPointOperand, FixedU128, ModuleError, Perquintill, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
@@ -297,7 +299,7 @@ decl_module! {
 			// loss.
 			assert!(
 				<Multiplier as sp_runtime::traits::Bounded>::max_value() >=
-				Multiplier::checked_from_integer(
+				Multiplier::checked_from_integer::<u64>(
 					T::BlockWeights::get().max_block.try_into().unwrap()
 				).unwrap(),
 			);
@@ -502,7 +504,7 @@ where
 		// cap the weight to the maximum defined in runtime, otherwise it will be the
 		// `Bounded` maximum of its data type, which is not desired.
 		let capped_weight = weight.min(T::BlockWeights::get().max_block);
-		T::WeightToFee::calc(&capped_weight)
+		T::WeightToFee::weight_to_fee(&capped_weight)
 	}
 }
 
@@ -597,7 +599,7 @@ where
 			// Buy the CENNZnet fee currency paying with the user's nominated fee currency
 			T::BuyFeeAsset::buy_fee_asset(who, fee, &exchange).map_err(|e| {
 				let code = match e {
-					DispatchError::Module { message, .. } => {
+					DispatchError::Module(ModuleError { message, .. }) => {
 						error_code::buy_fee_asset_error_msg_to_code(message.unwrap_or("Unknown buy fee asset error"))
 					}
 					_ => error_code::UNKNOWN_BUY_FEE_ASSET,
@@ -689,15 +691,16 @@ where
 	}
 
 	fn post_dispatch(
-		pre: Self::Pre,
+		pre: Option<Self::Pre>,
 		info: &DispatchInfoOf<Self::Call>,
 		post_info: &PostDispatchInfoOf<Self::Call>,
 		len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		let (tip, who, imbalance) = pre;
-		let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
-		T::OnChargeTransaction::correct_and_deposit_fee(&who, info, post_info, actual_fee, tip, imbalance)?;
+		if let Some((tip, who, imbalance)) = pre {
+			let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
+			T::OnChargeTransaction::correct_and_deposit_fee(&who, info, post_info, actual_fee, tip, imbalance)?;
+		};
 		Ok(())
 	}
 }
@@ -821,6 +824,7 @@ mod tests {
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 		type OnSetCode = ();
+		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
 	parameter_types! {
@@ -865,20 +869,20 @@ mod tests {
 		) -> sp_std::result::Result<Self::Balance, DispatchError> {
 			if exchange_op.asset_id() == VALID_ASSET_TO_BUY_FEE {
 				if exchange_op.max_payment() == 0 {
-					return Err(DispatchError::Module {
+					return Err(DispatchError::Module(ModuleError {
 						index: 1,
-						error: 15,
+						error: [0, 0, 0, 15],
 						message: Some("MaximumSellRequirementNotMet"),
-					});
+					}));
 				}
 				// buy fee asset at a 1:1 ratio
 				let _ = Balances::deposit_into_existing(who, amount)?;
 			} else {
-				return Err(DispatchError::Module {
+				return Err(DispatchError::Module(ModuleError {
 					index: 1,
-					error: 33,
+					error: [0, 0, 0, 33],
 					message: Some("InvalidAssetId"),
-				});
+				}));
 			}
 			Ok(amount)
 		}
@@ -1009,7 +1013,7 @@ mod tests {
 				assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
 				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-					pre,
+					Some(pre),
 					&info_from_weight(5),
 					&default_post_info(),
 					len,
@@ -1024,7 +1028,7 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
 				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-					pre,
+					Some(pre),
 					&info_from_weight(100),
 					&post_info_from_weight(50),
 					len,
@@ -1052,7 +1056,7 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 150 - 5);
 
 				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-					pre,
+					Some(pre),
 					&info_from_weight(100),
 					&post_info_from_weight(50),
 					len,
@@ -1317,7 +1321,7 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 0);
 
 				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-					pre,
+					Some(pre),
 					&info_from_weight(100),
 					&post_info_from_weight(50),
 					len,
@@ -1355,7 +1359,7 @@ mod tests {
 				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
 
 				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-					pre,
+					Some(pre),
 					&info_from_weight(100),
 					&post_info_from_weight(101),
 					len,
@@ -1387,7 +1391,7 @@ mod tests {
 					.unwrap();
 				assert_eq!(Balances::total_balance(&user), 0);
 				assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-					pre,
+					Some(pre),
 					&dispatch_info,
 					&default_post_info(),
 					len,
@@ -1419,7 +1423,7 @@ mod tests {
 					.pre_dispatch(&2, CALL, &info, len)
 					.unwrap();
 
-				ChargeTransactionPayment::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
+				ChargeTransactionPayment::<Runtime>::post_dispatch(Some(pre), &info, &post_info, len, &Ok(())).unwrap();
 
 				let refund_based_fee = prev_balance - Balances::free_balance(2);
 				let actual_fee = Module::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
@@ -1449,7 +1453,7 @@ mod tests {
 					.pre_dispatch(&2, CALL, &info, len)
 					.unwrap();
 
-				ChargeTransactionPayment::<Runtime>::post_dispatch(pre, &info, &post_info, len, &Ok(())).unwrap();
+				ChargeTransactionPayment::<Runtime>::post_dispatch(Some(pre), &info, &post_info, len, &Ok(())).unwrap();
 
 				let refund_based_fee = prev_balance - Balances::free_balance(2);
 				let actual_fee = Module::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);

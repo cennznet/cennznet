@@ -13,6 +13,7 @@
 *     https://centrality.ai/licenses/lgplv3.txt
 */
 
+use super::StorageVersion as storage_version;
 use super::*;
 use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test};
 use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
@@ -230,7 +231,7 @@ fn migration_v1_to_v2() {
 		);
 
 		// run upgrade
-		StorageVersion::put(Releases::V1 as u32); // rollback to v1
+		storage_version::put(Releases::V1 as u32); // rollback to v1
 		<Module<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
 
 		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
@@ -260,7 +261,7 @@ fn migration_v1_to_v2() {
 				marketplace_id: None,
 			}),
 		);
-		assert_eq!(StorageVersion::get(), Releases::V2 as u32);
+		assert_eq!(storage_version::get(), Releases::V2 as u32);
 	});
 }
 

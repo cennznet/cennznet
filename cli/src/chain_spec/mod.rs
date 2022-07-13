@@ -400,7 +400,9 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		},
-		sudo: SudoConfig { key: root_key.clone() },
+		sudo: SudoConfig {
+			key: Some(root_key.clone()),
+		},
 		babe: BabeConfig {
 			authorities: vec![],
 			epoch_config: Some(cennznet_runtime::BABE_GENESIS_EPOCH_CONFIG),
@@ -495,6 +497,7 @@ pub(crate) mod tests {
 			None,
 			None,
 			Default::default(),
+			Default::default(),
 		)
 	}
 
@@ -509,6 +512,7 @@ pub(crate) mod tests {
 			None,
 			None,
 			None,
+			Default::default(),
 			Default::default(),
 		)
 	}

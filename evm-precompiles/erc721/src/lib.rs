@@ -15,21 +15,20 @@
 // along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
-use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
-pub use fp_evm::{Context, ExitSucceed, PrecompileOutput};
+use fp_evm::{ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::OriginTrait,
 };
-pub use pallet_evm::{AddressMapping, PrecompileSet};
-pub use precompile_utils::{
-	error, keccak256, Address, AddressMappingReversibleExt, Bytes, EvmData, EvmDataReader, EvmDataWriter, EvmResult,
-	FunctionModifier, Gasometer, LogsBuilder, RuntimeHelper,
-};
+use pallet_evm::{AddressMapping, PrecompileSet};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::SaturatedConversion;
-use sp_std::{marker::PhantomData, vec};
+use sp_std::marker::PhantomData;
+
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
+use precompile_utils::{prelude::*, AddressMappingReversibleExt, ExitRevert};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -85,6 +84,12 @@ pub const ERC721_PRECOMPILE_ADDRESS_PREFIX: &[u8] = &[0xAA; 4];
 /// but the probability for this to happen is 2^-32 for random addresses
 pub struct Erc721PrecompileSet<Runtime>(PhantomData<Runtime>);
 
+impl<T> Default for Erc721PrecompileSet<T> {
+	fn default() -> Self {
+		Self(PhantomData)
+	}
+}
+
 impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: Into<[u8; 32]>,
@@ -96,53 +101,37 @@ where
 	Runtime: Erc721IdConversion<RuntimeId = (CollectionId, SeriesId), EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
-	fn execute(
-		&self,
-		address: H160,
-		input: &[u8],
-		target_gas: Option<u64>,
-		context: &Context,
-		is_static: bool,
-	) -> Option<EvmResult<PrecompileOutput>> {
+	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<EvmResult<PrecompileOutput>> {
 		// Convert target `address` into it's runtime NFT Id
-		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(address)) {
+		if let Some((collection_id, series_id)) = Runtime::evm_id_to_runtime_id(Address(handle.code_address())) {
 			// 'collection name' is empty when the collection doesn't exist yet
 			if !crml_nft::Pallet::<Runtime>::collection_name(collection_id).is_empty() {
 				let result = {
-					let mut gasometer = Gasometer::new(target_gas);
-					let gasometer = &mut gasometer;
-
-					let (mut input, selector) = match EvmDataReader::new_with_selector(gasometer, input) {
-						Ok((input, selector)) => (input, selector),
+					let selector = match handle.read_selector() {
+						Ok(selector) => selector,
 						Err(e) => return Some(Err(e)),
 					};
-					let input = &mut input;
 
-					if let Err(err) = gasometer.check_function_modifier(
-						context,
-						is_static,
-						match selector {
-							Action::Approve
-							| Action::SafeTransferFrom
-							| Action::TransferFrom
-							| Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
-							_ => FunctionModifier::View,
-						},
-					) {
+					if let Err(err) = handle.check_function_modifier(match selector {
+						Action::Approve
+						| Action::SafeTransferFrom
+						| Action::TransferFrom
+						| Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
+						_ => FunctionModifier::View,
+					}) {
 						return Some(Err(err));
 					}
 
 					let series_id_parts = (collection_id, series_id);
 					match selector {
-						Action::OwnerOf => Self::owner_of(series_id_parts, input, gasometer),
-						Action::BalanceOf => Self::balance_of(series_id_parts, input, gasometer),
-						Action::TransferFrom => Self::transfer_from(series_id_parts, input, gasometer, context),
-						Action::Name => Self::name(series_id_parts, gasometer),
-						Action::Symbol => Self::symbol(series_id_parts, gasometer),
-						Action::TokenURI => Self::token_uri(series_id_parts, input, gasometer),
-						Action::Approve => Self::approve(series_id_parts, input, gasometer, context),
-						Action::GetApproved => Self::get_approved(series_id_parts, input, gasometer),
-						// TODO: implement approval stuff
+						Action::OwnerOf => Self::owner_of(series_id_parts, handle),
+						Action::BalanceOf => Self::balance_of(series_id_parts, handle),
+						Action::TransferFrom => Self::transfer_from(series_id_parts, handle),
+						Action::Name => Self::name(series_id_parts, handle),
+						Action::Symbol => Self::symbol(series_id_parts, handle),
+						Action::TokenURI => Self::token_uri(series_id_parts, handle),
+						Action::Approve => Self::approve(series_id_parts, handle),
+						Action::GetApproved => Self::get_approved(series_id_parts, handle),
 						Action::SafeTransferFrom
 						| Action::SafeTransferFromCallData
 						| Action::IsApprovedForAll
@@ -185,18 +174,17 @@ where
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
 	/// Returns the CENNZnet address which owns the given token
-	/// The zero address is returned if it is unowned or does not exist
-	/// ss58 `5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM`
+	/// An error is returned if the token doesn't exist
 	fn owner_of(
 		series_id_parts: (CollectionId, SeriesId),
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
+		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Parse input.
-		input.expect_arguments(gasometer, 1)?;
-		let serial_number: U256 = input.read::<U256>(gasometer)?;
+		let mut input = handle.read_input()?;
+		input.expect_arguments(1)?;
+		let serial_number: U256 = input.read::<U256>()?;
 
 		// For now we only support Ids < u32 max
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
@@ -206,30 +194,30 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		// Fetch info.
-		let owner_account_id =
-			H256::from(crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number).into());
-
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
-			output: EvmDataWriter::new().write(owner_account_id).build(),
-			logs: vec![],
-		})
+		match crml_nft::Pallet::<Runtime>::token_owner(series_id_parts, serial_number) {
+			Some(owner_account_id) => Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				output: EvmDataWriter::new().write(H256::from(owner_account_id.into())).build(),
+			}),
+			None => Err(PrecompileFailure::Revert {
+				exit_status: ExitRevert::Reverted,
+				output: alloc::format!("Token does not exist").as_bytes().to_vec(),
+			}),
+		}
 	}
 
 	fn balance_of(
 		series_id_parts: (CollectionId, SeriesId),
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
+		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Read input.
-		input.expect_arguments(gasometer, 1)?;
+		let mut input = handle.read_input()?;
+		input.expect_arguments(1)?;
 
-		let owner: H160 = input.read::<Address>(gasometer)?.into();
+		let owner: H160 = input.read::<Address>()?.into();
 
 		// Fetch info.
 		let amount: U256 = {
@@ -243,26 +231,23 @@ where
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(amount).build(),
-			logs: vec![],
 		})
 	}
 
 	fn transfer_from(
 		series_id_parts: (CollectionId, SeriesId),
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
-		context: &Context,
+		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		input.expect_arguments(gasometer, 3)?;
+		let mut input = handle.read_input()?;
+		input.expect_arguments(3)?;
 
-		let to: H160 = input.read::<Address>(gasometer)?.into();
-		let from: H160 = input.read::<Address>(gasometer)?.into();
-		let serial_number = input.read::<U256>(gasometer)?;
+		let to: H160 = input.read::<Address>()?.into();
+		let from: H160 = input.read::<Address>()?.into();
+		let serial_number = input.read::<U256>()?;
 
 		// For now we only support Ids < u32 max
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
@@ -272,57 +257,56 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id = (series_id_parts.0, series_id_parts.1, serial_number);
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let approved_account: H160 = crml_token_approvals::Module::<Runtime>::erc721_approvals(token_id);
 
 		// Build call with origin.
-		if context.caller == from || context.caller == approved_account {
+		if handle.context().caller == from || handle.context().caller == approved_account {
 			let from = Runtime::AddressMapping::into_account_id(from);
 			let to = Runtime::AddressMapping::into_account_id(to);
 
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
+				handle,
 				Some(from).into(),
 				crml_nft::Call::<Runtime>::transfer {
 					token_id,
 					new_owner: to,
 				},
-				gasometer,
 			)?;
 		} else {
 			return Err(error("caller not approved").into());
 		}
 
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER,
+			handle.context().caller,
+			to,
+			EvmDataWriter::new().write(serial_number).build(),
+		)
+		.record(handle)?;
+
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
-			logs: LogsBuilder::new(context.address)
-				.log3(
-					SELECTOR_LOG_TRANSFER,
-					context.caller,
-					to,
-					EvmDataWriter::new().write(serial_number).build(),
-				)
-				.build(),
 		})
 	}
 
 	fn approve(
 		series_id_parts: (CollectionId, SeriesId),
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
-		context: &Context,
+		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		input.expect_arguments(gasometer, 3)?;
+		let mut input = handle.read_input()?;
+		input.expect_arguments(3)?;
 
-		let to: H160 = input.read::<Address>(gasometer)?.into();
-		let from: H160 = input.read::<Address>(gasometer)?.into();
-		let serial_number = input.read::<U256>(gasometer)?;
+		let to: H160 = input.read::<Address>()?.into();
+		let from: H160 = input.read::<Address>()?.into();
+		let serial_number = input.read::<U256>()?;
 
 		// For now we only support Ids < u32 max
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
@@ -332,48 +316,48 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		if context.caller == from {
+		if handle.context().caller == from {
 			let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
+				handle,
 				None.into(),
 				crml_token_approvals::Call::<Runtime>::erc721_approval {
 					caller: from,
 					operator_account: to,
 					token_id,
 				},
-				gasometer,
 			)?;
 		} else {
 			return Err(error("caller must be from").into());
 		};
 
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_APPROVAL,
+			handle.context().caller,
+			to,
+			EvmDataWriter::new().write(serial_number).build(),
+		)
+		.record(handle)?;
+
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new().write(true).build(),
-			logs: LogsBuilder::new(context.address)
-				.log3(
-					SELECTOR_LOG_APPROVAL,
-					context.caller,
-					to,
-					EvmDataWriter::new().write(serial_number).build(),
-				)
-				.build(),
 		})
 	}
 
 	fn get_approved(
 		series_id_parts: (CollectionId, SeriesId),
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
+		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		input.expect_arguments(gasometer, 1)?;
-		let serial_number = input.read::<U256>(gasometer)?;
+		let mut input = handle.read_input()?;
+		input.expect_arguments(1)?;
+		let serial_number = input.read::<U256>()?;
 
 		// For now we only support Ids < u32 max
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
@@ -390,21 +374,21 @@ where
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new()
 				.write::<Bytes>(approved_account.as_bytes().into())
 				.build(),
-			logs: Default::default(),
 		})
 	}
 
-	fn name(series_id_parts: (CollectionId, SeriesId), gasometer: &mut Gasometer) -> EvmResult<PrecompileOutput> {
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+	fn name(
+		series_id_parts: (CollectionId, SeriesId),
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new()
 				.write::<Bytes>(
 					crml_nft::Pallet::<Runtime>::series_name(series_id_parts)
@@ -412,17 +396,18 @@ where
 						.into(),
 				)
 				.build(),
-			logs: Default::default(),
 		})
 	}
 
-	fn symbol(series_id_parts: (CollectionId, SeriesId), gasometer: &mut Gasometer) -> EvmResult<PrecompileOutput> {
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+	fn symbol(
+		series_id_parts: (CollectionId, SeriesId),
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new()
 				.write::<Bytes>(
 					// TODO: returns same as `name`
@@ -431,24 +416,23 @@ where
 						.into(),
 				)
 				.build(),
-			logs: Default::default(),
 		})
 	}
 
 	fn token_uri(
 		series_id_parts: (CollectionId, SeriesId),
-		input: &mut EvmDataReader,
-		gasometer: &mut Gasometer,
+		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		gasometer.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		input.expect_arguments(gasometer, 1)?;
-		let serial_number = input.read::<U256>(gasometer)?;
+		let mut input = handle.read_input()?;
+		input.expect_arguments(1)?;
+		let serial_number = input.read::<U256>()?;
 
 		// For now we only support Ids < u32 max
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
-		if serial_number > u32::max_value().into() {
+		if serial_number > u32::MAX.into() {
 			return Err(error("expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
@@ -456,7 +440,6 @@ where
 		// Build output.
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
-			cost: gasometer.used_gas(),
 			output: EvmDataWriter::new()
 				.write::<Bytes>(
 					crml_nft::Pallet::<Runtime>::token_uri((series_id_parts.0, series_id_parts.1, serial_number))
@@ -464,7 +447,6 @@ where
 						.into(),
 				)
 				.build(),
-			logs: Default::default(),
 		})
 	}
 }

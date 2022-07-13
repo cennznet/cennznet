@@ -8,12 +8,10 @@ repository = "https://github.com/cennznet/cennznet/"
 version = "0.6.0"
 
 [dependencies]
-ethereum = { version = "0.11.1", default-features = false, features = [ "with-codec" ] }
-ethereum-types = "0.12.1"
-jsonrpc-core = "18.0.0"
-jsonrpc-core-client = "18.0.0"
-jsonrpc-derive = "18.0.0"
+ethereum = { version = "0.12.0", default-features = false, features = [ "with-codec" ] }
+ethereum-types = "0.13.1"
+jsonrpsee = { version = "0.13.0", features = ["server", "macros"] }
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 
-fc-rpc-core = { git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
+fc-rpc-core = { git = "https://github.com/cennznet/frontier", branch = "polkadot-v0.9.23" }

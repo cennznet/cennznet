@@ -7,25 +7,25 @@ description = "Pallet for state requests to Ethereum"
 license = "GPL-3.0"
 
 [dependencies]
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-codec = { version = "2.0.0", package = "parity-scale-codec", default-features = false }
-ethereum-types = { version = "0.12.1", default-features = false, features = ["serialize", "codec"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
+ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
 
 cennznet-primitives = { path = "../../primitives", default-features = false }
 crml-support = { path = "../support", default-features = false }
 
 # Substrate packages
 crml-generic-asset = { path = "../generic-asset", default-features = false }
-frame-support = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-frame-system = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", rev = "890a535d105d206f7427550794c1973eeff9dd52" }
-sp-core = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-io = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-runtime = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
-sp-std = { git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+pallet-evm = { default-features = false, git = "https://github.com/cennznet/frontier", branch = "polkadot-v0.9.23" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23", default-features = false }
 
 [dev-dependencies]
-ethabi = { version = "16.0.0", default-features = false }
+ethabi = { version = "17.1.0", default-features = false }
 hex-literal = { version = "0.3.1", default-features = false }
 
 [features]

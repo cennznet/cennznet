@@ -78,7 +78,7 @@ fn on_cennz_deposit_transfers() {
 		<Erc20ToAssetId>::insert(cennz_eth_address, cennz_asset_id);
 		assert_ok!(Erc20Peg::activate_cennz_deposits(frame_system::RawOrigin::Root.into()));
 		let _ = <Test as Config>::MultiCurrency::deposit_creating(
-			&PegPalletId::get().into_account(),
+			&PegPalletId::get().into_account_truncating(),
 			cennz_asset_id,
 			amount,
 		);
@@ -102,7 +102,7 @@ fn on_cennz_deposit_transfers() {
 		let beneficiary: AccountId = AccountId::decode(&mut &beneficiary.0[..]).unwrap();
 		assert_eq!(GenericAsset::free_balance(cennz_asset_id, &beneficiary), amount);
 		assert_eq!(
-			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account()),
+			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account_truncating()),
 			0,
 		);
 	});
@@ -129,7 +129,7 @@ fn cennz_withdraw_transfers() {
 			true
 		));
 		assert_eq!(
-			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account()),
+			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account_truncating()),
 			0,
 		);
 		assert_ok!(Erc20Peg::withdraw(
@@ -140,7 +140,7 @@ fn cennz_withdraw_transfers() {
 		));
 		// Peg account should have cennz balance of amount
 		assert_eq!(
-			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account()),
+			GenericAsset::free_balance(cennz_asset_id, &PegPalletId::get().into_account_truncating()),
 			amount,
 		);
 

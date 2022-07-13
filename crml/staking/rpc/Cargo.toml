@@ -12,16 +12,14 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-jsonrpc-core = "18.0.0"
-jsonrpc-core-client = "18.0.0"
-jsonrpc-derive = "18.0.0"
-sp-blockchain = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-core = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-rpc = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+jsonrpsee = { version = "0.13.0", features = ["server", "macros"] }
+sp-blockchain = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-rpc = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 serde = { version = "1.0.102", features = ["derive"] }
-sp-runtime = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
-sp-api = { default-features = false, git = "https://github.com/cennznet/substrate", rev = "92f06d413796bb1443b31d92bde637c90742a077" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
+sp-api = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
 crml-staking-rpc-runtime-api = { default-features = false, version = "1.0.0", path = "./runtime-api" }
 
 [dev-dependencies]

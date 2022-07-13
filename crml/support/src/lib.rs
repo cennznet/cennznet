@@ -20,6 +20,7 @@
 
 use cennznet_primitives::types::{Balance, FeePreferences, TokenId};
 use codec::{Decode, Encode};
+use core::convert::TryInto;
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -224,7 +225,7 @@ pub trait RegistrationInfo {
 /// Currencies in the system are identifiable by a unique `CurrencyId`
 pub trait MultiCurrency {
 	/// The ID type for an account in the system
-	type AccountId: Debug + Default;
+	type AccountId: Debug;
 	/// The balance of an account for a particular currency
 	type Balance: AtLeast32BitUnsigned + Copy + Debug + Default + Saturating + MaybeSerializeDeserialize;
 	/// The ID type of a currency in the system
