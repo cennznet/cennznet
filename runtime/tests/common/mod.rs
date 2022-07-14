@@ -19,3 +19,4 @@
 pub mod helpers;
 pub mod keyring;
 pub mod mock;
+pub mod precompiles_builder;

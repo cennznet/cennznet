@@ -18,18 +18,19 @@
 use cennznet_primitives::types::Balance;
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, evm::*},
-	AddressMappingOf, Cennzx, GenericAsset, Origin, Runtime, CENNZNET_EVM_CONFIG,
+	AddressMappingOf, Cennzx, GenericAsset, Origin, Runtime,
 };
 use crml_support::{MultiCurrency, H160, U256};
 use ethabi::Token;
-use fp_rpc::runtime_decl_for_EthereumRuntimeRPCApi::EthereumRuntimeRPCApi;
 use frame_support::assert_ok;
 use hex_literal::hex;
-use pallet_evm::{AddressMapping, ExitReason, ExitRevert, Runner as RunnerT};
+use pallet_evm::{AddressMapping, ExitReason};
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
 
 mod common;
+use common::precompiles_builder::RunnerCallBuilder;
 use common::{keyring::alice, mock::ExtBuilder};
+use precompile_utils::ExitRevert;
 
 fn encode_swap_input(amount: Balance, max_input: Balance) -> Vec<u8> {
 	// keccak('swapForExactCPAY(address,uint128,uint256)')[..4]
@@ -65,9 +66,6 @@ fn buy_cpay_with_cennz() {
 			// setup call to the cennzx precompile
 			let cpay_to_buy = 100 * DOLLARS;
 			let input = encode_swap_input(cpay_to_buy, cpay_to_buy + 5 * DOLLARS);
-			let gas_limit = 1_000_000_u64;
-			let max_fee_per_gas = Runtime::gas_price();
-			let max_priority_fee_per_gas = U256::zero();
 
 			// give caller some CENNZ to fund the swap
 			let caller: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
@@ -78,18 +76,7 @@ fn buy_cpay_with_cennz() {
 			let _ = GenericAsset::deposit_creating(&caller_ss58, CPAY_ASSET_ID, initial_cpay_balance);
 
 			// Test
-			assert_ok!(<Runtime as pallet_evm::Config>::Runner::call(
-				caller,
-				H160::from_low_u64_be(CENNZX_PRECOMPILE),
-				input,
-				U256::zero(),
-				gas_limit,
-				Some(max_fee_per_gas),
-				Some(max_priority_fee_per_gas),
-				None,
-				Default::default(),
-				&CENNZNET_EVM_CONFIG
-			));
+			assert_ok!(RunnerCallBuilder::new(caller, input, H160::from_low_u64_be(CENNZX_PRECOMPILE)).run());
 
 			let after_cpay_balance = GenericAsset::free_balance(CPAY_ASSET_ID, &caller_ss58);
 			let after_cennz_balance = GenericAsset::free_balance(CENNZ_ASSET_ID, &caller_ss58);
@@ -106,29 +93,16 @@ fn buy_cpay_reverts() {
 		// Setup call to the cennzx precompile
 		let cpay_to_buy = 100 * DOLLARS;
 		let input = encode_swap_input(cpay_to_buy, cpay_to_buy + 5 * DOLLARS);
-		let gas_limit = 1_000_000_u64;
-		let max_fee_per_gas = Runtime::gas_price();
-		let max_priority_fee_per_gas = U256::zero();
 		let caller: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
 		let caller_ss58 = AddressMappingOf::<Runtime>::into_account_id(caller);
 		let _ = GenericAsset::deposit_creating(&caller_ss58, CPAY_ASSET_ID, 100 * DOLLARS);
 
-		// Tests
+		// Test
 		assert_eq!(
-			<Runtime as pallet_evm::Config>::Runner::call(
-				caller,
-				H160::from_low_u64_be(CENNZX_PRECOMPILE),
-				input,
-				U256::zero(),
-				gas_limit,
-				Some(max_fee_per_gas),
-				Some(max_priority_fee_per_gas),
-				None,
-				Default::default(),
-				&CENNZNET_EVM_CONFIG
-			)
-			.unwrap()
-			.exit_reason,
+			RunnerCallBuilder::new(caller, input, H160::from_low_u64_be(CENNZX_PRECOMPILE))
+				.run()
+				.unwrap()
+				.exit_reason,
 			ExitReason::Revert(ExitRevert::Reverted),
 		);
 	});

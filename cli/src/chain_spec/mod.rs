@@ -447,75 +447,7 @@ pub fn config_genesis(network_keys: NetworkKeys) -> GenesisConfig {
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use sc_service::ChainType;
 	use sp_runtime::BuildStorage;
-
-	fn local_testnet_genesis_instant_single() -> GenesisConfig {
-		let endowed_accounts = vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		];
-		let initial_authorities = vec![get_authority_keys_from_seed("Alice")];
-		let root_key = get_account_id_from_seed::<sr25519::Public>("Alice");
-
-		config_genesis(NetworkKeys {
-			endowed_accounts,
-			initial_authorities,
-			root_key,
-		})
-	}
-
-	fn local_testnet_genesis_instant_multi() -> GenesisConfig {
-		let endowed_accounts = vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		];
-		let initial_authorities = vec![
-			get_authority_keys_from_seed("Alice"),
-			get_authority_keys_from_seed("Bob"),
-		];
-		let root_key = get_account_id_from_seed::<sr25519::Public>("Alice");
-
-		config_genesis(NetworkKeys {
-			endowed_accounts,
-			initial_authorities,
-			root_key,
-		})
-	}
-
-	/// Local testnet config (single validator - Alice)
-	pub fn integration_test_config_with_single_authority() -> CENNZnetChainSpec {
-		CENNZnetChainSpec::from_genesis(
-			"Integration Test",
-			"test",
-			ChainType::Development,
-			local_testnet_genesis_instant_single,
-			vec![],
-			None,
-			None,
-			None,
-			Default::default(),
-			Default::default(),
-		)
-	}
-
-	/// Local testnet config (multivalidator Alice + Bob)
-	pub fn integration_test_config_with_two_authorities() -> CENNZnetChainSpec {
-		CENNZnetChainSpec::from_genesis(
-			"Integration Test",
-			"test",
-			ChainType::Development,
-			local_testnet_genesis_instant_multi,
-			vec![],
-			None,
-			None,
-			None,
-			Default::default(),
-			Default::default(),
-		)
-	}
 
 	#[test]
 	fn test_create_development_chain_spec() {

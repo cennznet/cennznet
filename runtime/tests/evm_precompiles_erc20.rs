@@ -14,30 +14,23 @@
 */
 
 use cennznet_primitives::types::{AccountId, AssetId, Balance};
+use cennznet_runtime::constants::asset::CPAY_ASSET_ID;
+use cennznet_runtime::constants::currency::DOLLARS;
 use cennznet_runtime::{GenericAsset, Runtime, TokenApprovals};
 use crml_support::{MultiCurrency, PrefixedAddressMapping};
 use frame_support::assert_ok;
 use hex_literal::hex;
-use pallet_evm_precompiles_erc20::{
-	Action, Address, AddressMapping, Context, Erc20IdConversion, Erc20PrecompileSet, EvmDataWriter, PrecompileSet,
-};
+use pallet_evm::AddressMapping;
+use pallet_evm_precompiles_erc20::{Action, Erc20IdConversion};
+use precompile_utils::prelude::*;
+use precompile_utils::AddressMappingReversibleExt;
 use sp_core::{H160, U256};
 
 mod common;
 use common::mock::ExtBuilder;
-use precompile_utils::AddressMappingReversibleExt;
+use common::precompiles_builder::RunnerCallBuilder;
 
 const STAKING_ASSET_ID: AssetId = 16000;
-
-fn setup_context(asset_id: AssetId, caller: H160) -> (H160, Context) {
-	let address: H160 = Runtime::runtime_id_to_evm_id(asset_id).into();
-	let context: Context = Context {
-		address,
-		caller,
-		apparent_value: U256::default(),
-	};
-	(address, context)
-}
 
 #[test]
 fn erc20_transfer() {
@@ -52,6 +45,7 @@ fn erc20_transfer() {
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let transfer_amount: Balance = 100;
+			let _ = GenericAsset::deposit_creating(&caller, CPAY_ASSET_ID, 100 * DOLLARS);
 
 			// Check initial balances
 			assert_eq!(
@@ -62,17 +56,12 @@ fn erc20_transfer() {
 				<GenericAsset as MultiCurrency>::free_balance(&receiver, STAKING_ASSET_ID),
 				0
 			);
-
-			let (address, context) = setup_context(STAKING_ASSET_ID, caller_eth);
+			let address: H160 = Runtime::runtime_id_to_evm_id(STAKING_ASSET_ID).into();
 			let input_data = EvmDataWriter::new_with_selector(Action::Transfer)
 				.write::<Address>(receiver_eth.into())
 				.write::<U256>(transfer_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false,)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(caller_eth, input_data, address).run());
 
 			// Check final balances
 			assert_eq!(
@@ -99,6 +88,7 @@ fn erc20_transfer_from() {
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let transfer_amount: Balance = 100;
+			let _ = GenericAsset::deposit_creating(&caller, CPAY_ASSET_ID, 100 * DOLLARS);
 
 			// Check initial balances
 			assert_eq!(
@@ -110,17 +100,13 @@ fn erc20_transfer_from() {
 				0
 			);
 
-			let (address, context) = setup_context(STAKING_ASSET_ID, caller_eth);
+			let address: H160 = Runtime::runtime_id_to_evm_id(STAKING_ASSET_ID).into();
 			let input_data = EvmDataWriter::new_with_selector(Action::TransferFrom)
 				.write::<Address>(caller_eth.into())
 				.write::<Address>(receiver_eth.into())
 				.write::<U256>(transfer_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false,)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(caller_eth, input_data, address).run());
 
 			// Check final balances
 			assert_eq!(
@@ -147,19 +133,15 @@ fn erc20_transfer_from_not_caller_should_fail() {
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let transfer_amount: Balance = 100;
+			let _ = GenericAsset::deposit_creating(&receiver, CPAY_ASSET_ID, 100 * DOLLARS);
 
-			let (address, context) = setup_context(STAKING_ASSET_ID, receiver_eth);
+			let address: H160 = Runtime::runtime_id_to_evm_id(STAKING_ASSET_ID).into();
 			let input_data = EvmDataWriter::new_with_selector(Action::TransferFrom)
 				.write::<Address>(caller_eth.into())
 				.write::<Address>(receiver_eth.into())
 				.write::<U256>(transfer_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-
-			assert!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false,)
-				.unwrap()
-				.is_err());
+			assert_ok!(RunnerCallBuilder::new(receiver_eth, input_data, address).run());
 
 			// Check final balances haven't changed
 			assert_eq!(
@@ -175,7 +157,7 @@ fn erc20_transfer_from_not_caller_should_fail() {
 
 #[test]
 fn erc20_approve_and_transfer() {
-	let initial_balance = 1000;
+	let initial_balance = 100000;
 	let owner = AccountId::from(hex!("63766d3a00000000000000a86e122edbdcba4bf24a2abf89f5c230b37df49d4a"));
 	ExtBuilder::default()
 		.initialise_eth_accounts(vec![owner.clone()])
@@ -186,19 +168,20 @@ fn erc20_approve_and_transfer() {
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
+			let approved: AccountId = PrefixedAddressMapping::into_account_id(approved_eth.clone());
+			let _ = GenericAsset::deposit_creating(&owner, CPAY_ASSET_ID, 100 * DOLLARS);
+			let _ = GenericAsset::deposit_creating(&approved, CPAY_ASSET_ID, 100 * DOLLARS);
+
 			let approved_amount: Balance = 200;
 			let transfer_amount: Balance = 100;
 
 			// Set Approval
-			let (address, context) = setup_context(STAKING_ASSET_ID, owner_eth);
+			let address: H160 = Runtime::runtime_id_to_evm_id(STAKING_ASSET_ID).into();
 			let input_data = EvmDataWriter::new_with_selector(Action::Approve)
 				.write::<Address>(approved_eth.into())
 				.write::<U256>(approved_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(owner_eth, input_data, address).run());
 
 			// Check approvals module
 			assert_eq!(
@@ -207,16 +190,12 @@ fn erc20_approve_and_transfer() {
 			);
 
 			// Transfer
-			let (address, context) = setup_context(STAKING_ASSET_ID, approved_eth);
 			let input_data = EvmDataWriter::new_with_selector(Action::TransferFrom)
 				.write::<Address>(owner_eth.into())
 				.write::<Address>(receiver_eth.into())
 				.write::<U256>(transfer_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false,)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(approved_eth, input_data, address).run());
 
 			// Check final balances
 			assert_eq!(
@@ -247,20 +226,20 @@ fn erc20_approve_and_transfer_removes_approval() {
 			let owner_eth = PrefixedAddressMapping::from_account_id(owner.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
+			let approved: AccountId = PrefixedAddressMapping::into_account_id(approved_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let approved_amount: Balance = 200;
 			let transfer_amount: Balance = 200; // The same as approved amount should clear approval
+			let _ = GenericAsset::deposit_creating(&approved, CPAY_ASSET_ID, 100 * DOLLARS);
+			let _ = GenericAsset::deposit_creating(&owner, CPAY_ASSET_ID, 100 * DOLLARS);
 
 			// Set Approval
-			let (address, context) = setup_context(STAKING_ASSET_ID, owner_eth);
+			let address: H160 = Runtime::runtime_id_to_evm_id(STAKING_ASSET_ID).into();
 			let input_data = EvmDataWriter::new_with_selector(Action::Approve)
 				.write::<Address>(approved_eth.into())
 				.write::<U256>(approved_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(owner_eth, input_data, address).run());
 
 			// Check approvals module
 			assert_eq!(
@@ -269,16 +248,12 @@ fn erc20_approve_and_transfer_removes_approval() {
 			);
 
 			// Transfer
-			let (address, context) = setup_context(STAKING_ASSET_ID, approved_eth);
 			let input_data = EvmDataWriter::new_with_selector(Action::TransferFrom)
 				.write::<Address>(owner_eth.into())
 				.write::<Address>(receiver_eth.into())
 				.write::<U256>(transfer_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false,)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(approved_eth, input_data, address).run());
 
 			// Check final balances
 			assert_eq!(
@@ -309,20 +284,20 @@ fn erc20_not_enough_approved_should_fail() {
 			let owner_eth = PrefixedAddressMapping::from_account_id(owner.clone());
 			let receiver_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
+			let approved: AccountId = PrefixedAddressMapping::into_account_id(approved_eth.clone());
 			let receiver: AccountId = PrefixedAddressMapping::into_account_id(receiver_eth.clone());
 			let approved_amount: Balance = 100;
 			let transfer_amount: Balance = 101; // Higher than approved amount
+			let _ = GenericAsset::deposit_creating(&approved, CPAY_ASSET_ID, 100 * DOLLARS);
+			let _ = GenericAsset::deposit_creating(&owner, CPAY_ASSET_ID, 100 * DOLLARS);
 
 			// Set Approval
-			let (address, context) = setup_context(STAKING_ASSET_ID, owner_eth);
+			let address: H160 = Runtime::runtime_id_to_evm_id(STAKING_ASSET_ID).into();
 			let input_data = EvmDataWriter::new_with_selector(Action::Approve)
 				.write::<Address>(approved_eth.into())
 				.write::<U256>(approved_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(owner_eth, input_data, address).run());
 
 			// Check approvals module
 			assert_eq!(
@@ -331,17 +306,12 @@ fn erc20_not_enough_approved_should_fail() {
 			);
 
 			// Transfer
-			let (address, context) = setup_context(STAKING_ASSET_ID, approved_eth);
 			let input_data = EvmDataWriter::new_with_selector(Action::TransferFrom)
 				.write::<Address>(owner_eth.into())
 				.write::<Address>(receiver_eth.into())
 				.write::<U256>(transfer_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false,)
-				.unwrap()
-				.is_err());
+			assert_ok!(RunnerCallBuilder::new(approved_eth, input_data, address).run());
 
 			// Check final balances
 			assert_eq!(
@@ -373,17 +343,15 @@ fn erc20_update_existing_approval() {
 			let approved_eth = H160::from_slice(&hex!("0000022EdbDcBA4bF24a2Abf89F5C230b3700000"));
 			let initial_approved_amount: Balance = 200;
 			let updated_approved_amount: Balance = 100;
+			let _ = GenericAsset::deposit_creating(&owner, CPAY_ASSET_ID, 100 * DOLLARS);
 
 			// Set Approval
-			let (address, context) = setup_context(STAKING_ASSET_ID, owner_eth);
+			let address: H160 = Runtime::runtime_id_to_evm_id(STAKING_ASSET_ID).into();
 			let input_data = EvmDataWriter::new_with_selector(Action::Approve)
 				.write::<Address>(approved_eth.into())
 				.write::<U256>(initial_approved_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(owner_eth, input_data, address).run());
 
 			// Check approvals module
 			assert_eq!(
@@ -396,10 +364,7 @@ fn erc20_update_existing_approval() {
 				.write::<Address>(approved_eth.into())
 				.write::<U256>(updated_approved_amount.into())
 				.build();
-			let precompile_set = Erc20PrecompileSet::<Runtime>::new();
-			assert_ok!(precompile_set
-				.execute(address.into(), &input_data, None, &context, false)
-				.unwrap());
+			assert_ok!(RunnerCallBuilder::new(owner_eth, input_data, address).run());
 
 			// Check approvals amount has changed
 			assert_eq!(

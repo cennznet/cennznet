@@ -31,7 +31,7 @@ use sp_runtime::traits::{SaturatedConversion, Zero};
 use sp_std::{cmp::max, prelude::*};
 
 #[cfg(test)]
-mod mock;
+pub mod mock;
 mod tests;
 mod types;
 use cennznet_primitives::traits::BuyFeeAsset;

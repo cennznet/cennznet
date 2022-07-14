@@ -14,7 +14,7 @@ use hex_literal::hex;
 use sp_runtime::Permill;
 
 fn state_oracle_ss58_address() -> AccountId {
-	let state_oracle_precompile = <TestRuntime as Config>::StateOraclePrecompileAddress::get();
+	let state_oracle_precompile = H160::from_low_u64_be(STATE_ORACLE_PRECOMPILE);
 	<TestRuntime as Config>::AddressMapping::into_account_id(state_oracle_precompile)
 }
 
@@ -167,7 +167,7 @@ fn try_callback() {
 		assert_eq!(
 			test_storage::CurrentExecutionParameters::get().expect("parameters are set"),
 			(
-				<TestRuntime as Config>::StateOraclePrecompileAddress::get(),
+				H160::from_low_u64_be(STATE_ORACLE_PRECOMPILE),
 				request.caller,
 				// input is an abi encoded call `testCallback(123, 5, 0x0101010101010101010101010101010101010101010101010101010101010101)`
 				// signature: `testCallback(uint256, uint256, bytes32)`
@@ -244,7 +244,7 @@ fn try_callback_with_fee_preferences() {
 		assert_eq!(
 			test_storage::CurrentExecutionParameters::get().expect("parameters are set"),
 			(
-				<TestRuntime as Config>::StateOraclePrecompileAddress::get(),
+				H160::from_low_u64_be(STATE_ORACLE_PRECOMPILE),
 				request.caller,
 				// input is an abi encoded call `testCallback(123, 5, 0x0101010101010101010101010101010101010101010101010101010101010101)`
 				// signature: `testCallback(uint256, uint256, bytes32)`

@@ -18,19 +18,21 @@
 use cennznet_primitives::types::{AssetId, Balance};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, evm::*},
-	AddressMappingOf, Erc20Peg, GenericAsset, Origin, Runtime, CENNZNET_EVM_CONFIG,
+	AddressMappingOf, Erc20Peg, GenericAsset, Origin, Runtime,
 };
 use crml_erc20_peg::AssetIdToErc20;
 use crml_support::{MultiCurrency, H160, U256};
 use ethabi::Token;
-use fp_rpc::runtime_decl_for_EthereumRuntimeRPCApi::EthereumRuntimeRPCApi;
 use frame_support::{assert_ok, StorageMap};
 use hex_literal::hex;
-use pallet_evm::{AddressMapping, ExitReason, ExitRevert, Runner as RunnerT};
+use pallet_evm::AddressMapping;
+use pallet_evm::{ExitReason, ExitRevert};
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
+
 mod common;
 use common::keyring::alice;
 use common::mock::ExtBuilder;
+use common::precompiles_builder::RunnerCallBuilder;
 
 fn encode_withdraw_input(asset_id: AssetId, amount: Balance, beneficiary: H160) -> Vec<u8> {
 	// keccak('withdraw(address,uint256,address)')[..4]
@@ -61,9 +63,6 @@ fn erc20_peg_withdraw() {
 			let amount: Balance = 100_000;
 			let beneficiary: H160 = H160::from_low_u64_be(123);
 			let input = encode_withdraw_input(asset_id, amount, beneficiary);
-			let gas_limit = 1_000_000_u64;
-			let max_fee_per_gas = Runtime::gas_price();
-			let max_priority_fee_per_gas = U256::zero();
 
 			// Setup asset to meta mapping in ERC20 Peg
 			let cennz_token_address = Runtime::runtime_id_to_evm_id(asset_id).0;
@@ -78,18 +77,7 @@ fn erc20_peg_withdraw() {
 			let _ = GenericAsset::deposit_creating(&caller_ss58, CPAY_ASSET_ID, initial_cpay_balance);
 
 			// Test
-			assert_ok!(<Runtime as pallet_evm::Config>::Runner::call(
-				caller,
-				H160::from_low_u64_be(PEG_PRECOMPILE),
-				input,
-				U256::zero(),
-				gas_limit,
-				Some(max_fee_per_gas),
-				Some(max_priority_fee_per_gas),
-				None,
-				Default::default(),
-				&CENNZNET_EVM_CONFIG
-			));
+			assert_ok!(RunnerCallBuilder::new(caller, input, H160::from_low_u64_be(PEG_PRECOMPILE)).run());
 
 			let after_cpay_balance = GenericAsset::free_balance(CPAY_ASSET_ID, &caller_ss58);
 			let after_cennz_balance = GenericAsset::free_balance(CENNZ_ASSET_ID, &caller_ss58);
@@ -111,9 +99,6 @@ fn erc20_peg_withdraw_reverts() {
 			let amount: Balance = 100_000;
 			let beneficiary: H160 = H160::from_low_u64_be(123);
 			let input = encode_withdraw_input(asset_id, amount, beneficiary);
-			let gas_limit = 1_000_000_u64;
-			let max_fee_per_gas = Runtime::gas_price();
-			let max_priority_fee_per_gas = U256::zero();
 
 			// give caller some CENNZ to fund the swap
 			let caller: H160 = hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB").into();
@@ -125,20 +110,10 @@ fn erc20_peg_withdraw_reverts() {
 
 			// Test
 			assert_eq!(
-				<Runtime as pallet_evm::Config>::Runner::call(
-					caller,
-					H160::from_low_u64_be(PEG_PRECOMPILE),
-					input,
-					U256::zero(),
-					gas_limit,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-					None,
-					Default::default(),
-					&CENNZNET_EVM_CONFIG
-				)
-				.unwrap()
-				.exit_reason,
+				RunnerCallBuilder::new(caller, input, H160::from_low_u64_be(PEG_PRECOMPILE))
+					.run()
+					.unwrap()
+					.exit_reason,
 				ExitReason::Revert(ExitRevert::Reverted),
 			);
 
@@ -169,9 +144,6 @@ fn erc20_peg_withdraw_with_delay_should_fail() {
 			let amount: Balance = 100_000;
 			let beneficiary: H160 = H160::from_low_u64_be(123);
 			let input = encode_withdraw_input(asset_id, amount, beneficiary);
-			let gas_limit = 1_000_000_u64;
-			let max_fee_per_gas = Runtime::gas_price();
-			let max_priority_fee_per_gas = U256::zero();
 
 			// Setup asset to meta mapping in ERC20 Peg
 			let cennz_token_address = Runtime::runtime_id_to_evm_id(asset_id).0;
@@ -190,20 +162,10 @@ fn erc20_peg_withdraw_with_delay_should_fail() {
 
 			// Test should be reverted
 			assert_eq!(
-				<Runtime as pallet_evm::Config>::Runner::call(
-					caller,
-					H160::from_low_u64_be(PEG_PRECOMPILE),
-					input,
-					U256::zero(),
-					gas_limit,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-					None,
-					Default::default(),
-					&CENNZNET_EVM_CONFIG
-				)
-				.unwrap()
-				.exit_reason,
+				RunnerCallBuilder::new(caller, input, H160::from_low_u64_be(PEG_PRECOMPILE))
+					.run()
+					.unwrap()
+					.exit_reason,
 				ExitReason::Revert(ExitRevert::Reverted),
 			);
 

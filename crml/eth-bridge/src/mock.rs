@@ -35,7 +35,7 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use scale_info::TypeInfo;
-use sp_core::{ecdsa::Signature, ByteArray, Public, H256};
+use sp_core::{ecdsa::Signature, ByteArray, H256};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
@@ -113,9 +113,6 @@ impl Config for TestRuntime {
 	type Event = Event;
 }
 
-/// Mock eth-http endpoint
-pub const MOCK_ETH_HTTP_URI: [u8; 31] = *b"http://ethereum-rpc.example.com";
-
 /// Values in EthBlock that we store in mock storage
 #[derive(PartialEq, Eq, Encode, Decode, Debug, Clone, Default, TypeInfo)]
 pub struct MockBlockResponse {
@@ -170,10 +167,6 @@ impl MockReceiptBuilder {
 	}
 	pub fn build(&self) -> TransactionReceipt {
 		self.0.clone()
-	}
-	pub fn block_hash(&mut self, block_hash: H256) -> &mut Self {
-		self.0.block_hash = block_hash;
-		self
 	}
 	pub fn block_number(&mut self, block_number: u64) -> &mut Self {
 		self.0.block_number = U64::from(block_number);
@@ -244,10 +237,6 @@ impl CheckedEthCallRequestBuilder {
 	}
 	pub fn build(self) -> CheckedEthCallRequest {
 		self.0
-	}
-	pub fn input(mut self, input: &[u8]) -> Self {
-		self.0.input = input.to_vec();
-		self
 	}
 	pub fn target(mut self, target: EthAddress) -> Self {
 		self.0.target = target;
