@@ -86,6 +86,9 @@ pub type SerialNumber = u32;
 /// Global unique token identifier
 pub type TokenId = (CollectionId, SeriesId, SerialNumber);
 
+/// Denotes a quantitiy of tokens
+pub type TokenCount = SerialNumber;
+
 /// The outer `FeeExchange` type. It is versioned to provide flexibility for future iterations
 /// while maintaining backward compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]

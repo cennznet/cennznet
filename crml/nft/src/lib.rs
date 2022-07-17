@@ -32,7 +32,7 @@
 //!  Individual tokens within a series. Globally identifiable by a tuple of (collection, series, serial number)
 //!
 
-use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
+use cennznet_primitives::types::{AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenCount, TokenId};
 use crml_support::{log, IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
@@ -53,7 +53,7 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-mod weights;
+pub mod weights;
 use weights::WeightInfo;
 
 mod migration;
@@ -466,39 +466,7 @@ decl_module! {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
-			// Permission and existence check
-			if let Some(collection_owner) = Self::collection_owner(collection_id) {
-				ensure!(collection_owner == origin, Error::<T>::NoPermission);
-			} else {
-				return Err(Error::<T>::NoCollection.into());
-			}
-
-			// Check we can issue the new tokens
-			let series_id = Self::next_series_id(collection_id);
-			ensure!(
-				series_id.checked_add(One::one()).is_some(),
-				Error::<T>::NoAvailableIds
-			);
-
-			let metadata_scheme = metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
-			SeriesMetadataScheme::insert(collection_id, series_id, metadata_scheme);
-
-			// Setup royalties
-			if let Some(royalties_schedule) = royalties_schedule {
-				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
-				<SeriesRoyalties<T>>::insert(collection_id, series_id, royalties_schedule);
-			}
-
-			// Now mint the series tokens
-			let owner = owner.unwrap_or(origin);
-			Self::do_mint(&owner, collection_id, series_id, 0 as SerialNumber, quantity)?;
-
-			// will not overflow, asserted prior qed.
-			NextSeriesId::mutate(collection_id, |i| *i += SeriesId::one());
-
-			Self::deposit_event(RawEvent::CreateSeries(collection_id, series_id, quantity, owner));
-
+			Self::do_mint_series(origin, collection_id, quantity, owner, metadata_scheme, royalties_schedule)?;
 			Ok(())
 		}
 
@@ -519,6 +487,7 @@ decl_module! {
 			owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			// Permission and existence check
 			if let Some(collection_owner) = Self::collection_owner(collection_id) {
@@ -527,8 +496,8 @@ decl_module! {
 				return Err(Error::<T>::NoCollection.into());
 			}
 
+			ensure!(NextSerialNumber::contains_key(collection_id, series_id), Error::<T>::NoToken);
 			let serial_number = Self::next_serial_number(collection_id, series_id);
-			ensure!(serial_number > Zero::zero(), Error::<T>::NoToken);
 			ensure!(
 				serial_number.checked_add(quantity).is_some(),
 				Error::<T>::NoAvailableIds
@@ -1142,6 +1111,48 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+	/// Mint a new series. Accessible from NFT module and NFT EVM Precompile
+	pub fn do_mint_series(
+		origin: T::AccountId,
+		collection_id: CollectionId,
+		quantity: TokenCount,
+		owner: Option<T::AccountId>,
+		metadata_scheme: MetadataScheme,
+		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+	) -> Result<SeriesId, DispatchError> {
+		// Permission and existence check
+		if let Some(collection_owner) = Self::collection_owner(collection_id) {
+			ensure!(collection_owner == origin, Error::<T>::NoPermission);
+		} else {
+			return Err(Error::<T>::NoCollection.into());
+		}
+
+		// Check we can issue the new tokens
+		let series_id = Self::next_series_id(collection_id);
+		ensure!(series_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
+		let metadata_scheme = metadata_scheme
+			.sanitize()
+			.map_err(|_| Error::<T>::InvalidMetadataPath)?;
+		SeriesMetadataScheme::insert(collection_id, series_id, metadata_scheme);
+
+		// Setup royalties
+		if let Some(royalties_schedule) = royalties_schedule {
+			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+			<SeriesRoyalties<T>>::insert(collection_id, series_id, royalties_schedule);
+		}
+
+		// Now mint the series tokens
+		let owner = owner.unwrap_or(origin);
+		Self::do_mint(&owner, collection_id, series_id, 0 as SerialNumber, quantity)?;
+
+		// will not overflow, asserted prior qed.
+		NextSeriesId::mutate(collection_id, |i| *i += SeriesId::one());
+
+		Self::deposit_event(RawEvent::CreateSeries(collection_id, series_id, quantity, owner));
+
+		Ok(series_id)
+	}
 	/// Return whether the series exists or not
 	pub fn series_exists(collection_id: CollectionId, series_id: SeriesId) -> bool {
 		SeriesMetadataScheme::contains_key(collection_id, series_id)
@@ -1270,20 +1281,22 @@ impl<T: Config> Module<T> {
 		serial_number: SerialNumber,
 		quantity: TokenCount,
 	) -> DispatchResult {
-		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		if quantity > Zero::zero() {
+			// Mint the set tokens
+			for serial_number in serial_number..serial_number + quantity {
+				<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
+			}
 
-		// Mint the set tokens
-		for serial_number in serial_number..serial_number + quantity {
-			<TokenOwner<T>>::insert((collection_id, series_id), serial_number as SerialNumber, &owner);
+			// update token balances
+			<TokenBalance<T>>::mutate(&owner, |balances| {
+				*balances.entry((collection_id, series_id)).or_default() += quantity
+			});
+			NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
+		} else {
+			NextSerialNumber::insert(collection_id, series_id, 0);
 		}
 
-		// update token balances
-		<TokenBalance<T>>::mutate(&owner, |balances| {
-			*balances.entry((collection_id, series_id)).or_default() += quantity
-		});
 		SeriesIssuance::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-		NextSerialNumber::mutate(collection_id, series_id, |q| *q = q.saturating_add(quantity));
-
 		Ok(())
 	}
 

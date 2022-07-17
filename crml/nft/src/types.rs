@@ -16,7 +16,7 @@
 //! NFT module types
 
 use crate::Config;
-use cennznet_primitives::types::{AssetId, Balance, BlockNumber, SerialNumber, TokenId};
+use cennznet_primitives::types::{AssetId, Balance, BlockNumber, TokenId};
 use codec::{Decode, Encode};
 use crml_support::MultiCurrency;
 use scale_info::TypeInfo;
@@ -109,6 +109,16 @@ impl MetadataScheme {
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
 		})
+	}
+	/// Returns a MetadataScheme from an index and metadata_path
+	pub fn from_index(index: u8, metadata_path: Vec<u8>) -> Result<Self, ()> {
+		match index {
+			0 => Ok(MetadataScheme::Https(metadata_path)),
+			1 => Ok(MetadataScheme::Http(metadata_path)),
+			2 => Ok(MetadataScheme::IpfsDir(metadata_path)),
+			3 => Ok(MetadataScheme::IpfsShared(metadata_path)),
+			_ => return Err(()),
+		}
 	}
 }
 
@@ -424,9 +434,6 @@ pub type MarketplaceId = u32;
 
 /// Unique Id for a listing
 pub type ListingId = u128;
-
-/// Denotes a quantitiy of tokens
-pub type TokenCount = SerialNumber;
 
 // A value placed in storage that represents the current version of the NFT storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.

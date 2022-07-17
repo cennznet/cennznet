@@ -1,5 +1,5 @@
 use crate::{
-	constants::evm::{CENNZX_PRECOMPILE, FEE_PROXY, PEG_PRECOMPILE},
+	constants::evm::{CENNZX_PRECOMPILE, FEE_PROXY, NFT_PRECOMPILE, PEG_PRECOMPILE},
 	AddressMappingOf, CENNZnetGasWeightMapping, Cennzx, EthStateOracle, Origin, Runtime, StateOracleIsActive,
 	StateOraclePrecompileAddress,
 };
@@ -17,6 +17,7 @@ use pallet_evm_precompiles_erc20_peg::Erc20PegPrecompile;
 use pallet_evm_precompiles_erc721::{
 	Address, Erc721IdConversion, Erc721PrecompileSet, ERC721_PRECOMPILE_ADDRESS_PREFIX,
 };
+use pallet_evm_precompiles_nft::NftPrecompile;
 use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 
@@ -44,6 +45,7 @@ where
 			CENNZX_PRECOMPILE,
 			FEE_PROXY,
 			PEG_PRECOMPILE,
+			NFT_PRECOMPILE,
 			27572 // TODO Create constant
 		]
 		.into_iter()
@@ -83,6 +85,9 @@ where
 			a if a == hash(PEG_PRECOMPILE) => Some(Erc20PegPrecompile::<Runtime>::execute(
 				input, target_gas, context, is_static,
 			)),
+			a if a == hash(NFT_PRECOMPILE) => {
+				Some(NftPrecompile::<Runtime>::execute(input, target_gas, context, is_static))
+			}
 			a if a == hash(CENNZX_PRECOMPILE) => Some(CennzxPrecompile::<
 				Cennzx,
 				AddressMappingOf<Runtime>,

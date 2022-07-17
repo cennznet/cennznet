@@ -15,7 +15,7 @@
 
 use super::*;
 use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test};
-use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
+use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenCount, TokenId};
 use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
@@ -1981,6 +1981,36 @@ fn mint_series() {
 			Nft::series_issuance(collection_id, series_id),
 			quantity + additional_quantity
 		);
+	});
+}
+
+#[test]
+fn mint_series_zero_quantity() {
+	ExtBuilder::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = setup_collection(collection_owner);
+		let quantity = 0; // Initial quantity of 0 should work
+		let series_id = Nft::next_series_id(collection_id);
+
+		// mint new series
+		assert_ok!(Nft::mint_series(
+			Some(collection_owner).into(),
+			collection_id,
+			quantity,
+			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+
+		assert!(has_event(RawEvent::CreateSeries(
+			collection_id,
+			series_id,
+			quantity,
+			collection_owner
+		)));
+
+		// check issuance
+		assert_eq!(Nft::series_issuance(collection_id, series_id), quantity);
 	});
 }
 

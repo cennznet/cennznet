@@ -46,6 +46,8 @@ pub mod evm {
 	pub const CENNZX_PRECOMPILE: u64 = 37322;
 	// Precompile address for erc20-peg
 	pub const PEG_PRECOMPILE: u64 = 1939;
+	// Precompile address for NFT
+	pub const NFT_PRECOMPILE: u64 = 1721;
 }
 
 /// Money matters.
