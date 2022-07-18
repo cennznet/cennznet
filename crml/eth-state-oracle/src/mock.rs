@@ -106,10 +106,10 @@ impl pallet_evm::GasWeightMapping for MockGasWeightMapping {
 parameter_types! {
 	pub const ChallengePeriod: BlockNumber = 5;
 	pub const MinGasPrice: u64 = 1;
-	pub StateOraclePrecompileAddress: H160 = H160::from_low_u64_be(27572);
 	pub RelayerBondAmount: Balance = 1_000_000_000;
 	pub MaxRequestsPerBlock: u32 = 30;
 	pub MaxRelayerCount: u32 = 1;
+	pub StateOracleIsActive: bool = true;
 }
 impl Config for TestRuntime {
 	type AddressMapping = SimpleAddressMapping<AccountId>;
@@ -120,12 +120,12 @@ impl Config for TestRuntime {
 	type MultiCurrency = GenericAsset;
 	type MinGasPrice = MinGasPrice;
 	type GasWeightMapping = MockGasWeightMapping;
-	type StateOraclePrecompileAddress = StateOraclePrecompileAddress;
 	type UnixTime = MockTimestampGetter;
 	type BuyFeeAsset = MockBuyFeeAsset;
 	type RelayerBondAmount = RelayerBondAmount;
 	type MaxRequestsPerBlock = MaxRequestsPerBlock;
 	type MaxRelayerCount = MaxRelayerCount;
+	type StateOracleIsActive = StateOracleIsActive;
 }
 
 pub struct MockBuyFeeAsset;

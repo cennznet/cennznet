@@ -376,7 +376,7 @@ mod tests {
 		AdjustmentVariable, MinimumMultiplier, Multiplier, Runtime, RuntimeBlockWeights as BlockWeights, System,
 		TargetBlockFullness, TargetedFeeAdjustment, TransactionPayment, WeightToCpayFactor,
 	};
-	use frame_support::weights::{DispatchClass, Weight, WeightToFeePolynomial};
+	use frame_support::weights::{DispatchClass, Weight, WeightToFee};
 	use sp_runtime::{assert_eq_error_rate, traits::Convert, FixedPointNumber};
 
 	fn max_normal() -> Weight {
@@ -570,7 +570,7 @@ mod tests {
 				}
 				fm = next;
 				iterations += 1;
-				let fee = <Runtime as crml_transaction_payment::Config>::WeightToFee::calc(&tx_weight);
+				let fee = <Runtime as crml_transaction_payment::Config>::WeightToFee::weight_to_fee(&tx_weight);
 				let adjusted_fee = fm.saturating_mul_acc_int(fee);
 				println!(
 					"iteration {}, new fm = {:?}. Fee at this point is: {} units / {} weis, \
@@ -702,9 +702,12 @@ mod tests {
 	#[test]
 	fn weight_to_cpay_fee_scaling() {
 		// ~1,000,000:1, configured in runtime/src/lib.rs `WeightToCpayFactor`
-		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&1_000_000), 1 * MICROS);
-		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::calc(&0), 0);
+		assert_eq!(
+			WeightToCpayFee::<WeightToCpayFactor>::weight_to_fee(&1_000_000),
+			1 * MICROS
+		);
+		assert_eq!(WeightToCpayFee::<WeightToCpayFactor>::weight_to_fee(&0), 0);
 		// check no issues at max. value
-		let _ = WeightToCpayFee::<WeightToCpayFactor>::calc(&u64::max_value());
+		let _ = WeightToCpayFee::<WeightToCpayFactor>::weight_to_fee(&u64::max_value());
 	}
 }

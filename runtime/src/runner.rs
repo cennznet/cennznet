@@ -395,8 +395,10 @@ mod tests {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let (base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_ok!(Runner::calculate_total_gas(
+				base_fee,
 				gas_limit,
 				Some(max_fee_per_gas),
 				Some(max_priority_fee_per_gas),
@@ -408,10 +410,10 @@ mod tests {
 	fn calculate_total_gas_low_max_fee_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit = 100_000_u64;
-			let max_fee_per_gas = BaseFee::min_gas_price().saturating_sub(1_u64.into());
+			let (base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), None),
+				Runner::calculate_total_gas(base_fee, gas_limit, Some(base_fee.saturating_sub(1_u64.into())), None),
 				FeePreferencesError::GasPriceTooLow
 			);
 		});
@@ -423,8 +425,10 @@ mod tests {
 			let gas_limit = 100_000_u64;
 			let max_fee_per_gas = None;
 			let max_priority_fee_per_gas = U256::from(1_000_000_u64);
+			let (base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_ok!(Runner::calculate_total_gas(
+				base_fee,
 				gas_limit,
 				max_fee_per_gas,
 				Some(max_priority_fee_per_gas)
@@ -438,9 +442,15 @@ mod tests {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let max_priority_fee_per_gas = U256::MAX;
+			let (base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), Some(max_priority_fee_per_gas),),
+				Runner::calculate_total_gas(
+					base_fee,
+					gas_limit,
+					Some(max_fee_per_gas),
+					Some(max_priority_fee_per_gas),
+				),
 				FeePreferencesError::FeeOverflow
 			);
 		});
@@ -452,9 +462,15 @@ mod tests {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::MAX;
 			let max_priority_fee_per_gas = U256::from(1000000u64);
+			let (base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), Some(max_priority_fee_per_gas),),
+				Runner::calculate_total_gas(
+					base_fee,
+					gas_limit,
+					Some(max_fee_per_gas),
+					Some(max_priority_fee_per_gas),
+				),
 				FeePreferencesError::FeeOverflow
 			);
 		});

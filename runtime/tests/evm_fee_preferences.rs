@@ -18,19 +18,19 @@
 use cennznet_primitives::types::{AccountId, AssetId, Balance};
 use cennznet_runtime::{
 	constants::{asset::*, currency::*, evm::*},
-	Cennzx, GenericAsset, Origin, Runtime, CENNZNET_EVM_CONFIG,
+	Cennzx, GenericAsset, Origin, Runtime,
 };
-use crml_support::{MultiCurrency, PrefixedAddressMapping, H160, H256, U256};
+use crml_support::{MultiCurrency, PrefixedAddressMapping, H160};
 use ethabi::Token;
 use frame_support::{assert_ok, assert_storage_noop};
 use hex_literal::hex;
-use pallet_evm::{AddressMapping, Runner as RunnerT};
+use pallet_evm::AddressMapping;
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
 use sp_runtime::traits::Zero;
-
 mod common;
 use common::keyring::{alice, ferdie};
 use common::mock::ExtBuilder;
+use common::precompiles_builder::RunnerCallBuilder;
 
 /// Type alias for the runtime FeePreferencesRunner
 pub type FeePreferencesRunner = cennznet_runtime::runner::FeePreferencesRunner<Runtime, Runtime>;
@@ -71,23 +71,6 @@ fn setup_liquidity(initial_liquidity_lhs: u128, initial_liquidity_rhs: u128) {
 	));
 }
 
-/// Execute fee preferenecs runner call with some default parameters
-fn exec_runner_call(caller: H160, input: Vec<u8>) -> Result<pallet_evm::CallInfo, pallet_evm::Error<Runtime>> {
-	let access_list = Vec::<(H160, Vec<H256>)>::default();
-	<Runtime as pallet_evm::Config>::Runner::call(
-		caller,
-		H160::from_low_u64_be(FEE_PROXY),
-		input,
-		U256::zero(),
-		100_000,
-		Some(U256::from(20_000_000_000_000_u64)),
-		Some(U256::from(1_000_000_u64)),
-		None,
-		access_list,
-		&CENNZNET_EVM_CONFIG,
-	)
-}
-
 #[test]
 fn encode_fee_preferences_input_works() {
 	ExtBuilder::default()
@@ -122,7 +105,7 @@ fn evm_call_with_fee_preferences() {
 	let cennznet_address: AccountId = <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(eth_address);
 	let initial_balance = 1000 * 10_u128.pow(18_u32);
 	let cpay_liquidity = 500 * DOLLARS;
-	let cennz_liquidity = 500 * 10_u128.pow(18_u32);
+	let cennz_liquidity = 500 * DOLLARS;
 
 	ExtBuilder::default()
 		.initial_balance(initial_balance)
@@ -157,7 +140,7 @@ fn evm_call_with_fee_preferences() {
 			let transfer_input = encode_transfer_input(receiver_eth, transfer_amount);
 			let input = encode_fee_preferences_input(CENNZ_ASSET_ID, max_payment, transfer_input);
 
-			assert_ok!(exec_runner_call(eth_address, input));
+			assert_ok!(RunnerCallBuilder::new(eth_address, input, H160::from_low_u64_be(FEE_PROXY)).run());
 
 			// Check receiver has received the CENNZ
 			assert_eq!(
@@ -194,7 +177,13 @@ fn evm_call_with_cpay_as_fee_preference_should_fail() {
 			let input = encode_fee_preferences_input(CPAY_ASSET_ID, 50, vec![]);
 
 			// TODO: the proper error types should be asserted post subsrtate polkadot-v0.9.23 update
-			assert_storage_noop!(assert!(exec_runner_call(eth_address, input).is_err()));
+			assert_storage_noop!(assert!(RunnerCallBuilder::new(
+				eth_address,
+				input,
+				H160::from_low_u64_be(FEE_PROXY)
+			)
+			.run()
+			.is_err()));
 		});
 }
 
@@ -213,11 +202,23 @@ fn evm_call_with_fee_preferences_low_max_payment_fails() {
 
 			// max_payment is 0
 			let input = encode_fee_preferences_input(CENNZ_ASSET_ID, 0, vec![]);
-			assert_storage_noop!(assert!(exec_runner_call(eth_address, input).is_err()));
+			assert_storage_noop!(assert!(RunnerCallBuilder::new(
+				eth_address,
+				input,
+				H160::from_low_u64_be(FEE_PROXY)
+			)
+			.run()
+			.is_err()));
 
 			// max payemnt is 1 CENNZ
 			let input = encode_fee_preferences_input(CENNZ_ASSET_ID, 10_000, vec![]);
-			assert_storage_noop!(assert!(exec_runner_call(eth_address, input).is_err()));
+			assert_storage_noop!(assert!(RunnerCallBuilder::new(
+				eth_address,
+				input,
+				H160::from_low_u64_be(FEE_PROXY)
+			)
+			.run()
+			.is_err()));
 		});
 }
 
@@ -240,7 +241,13 @@ fn evm_call_with_fee_preferences_no_asset_should_fail() {
 			let input = encode_fee_preferences_input(10, 50, vec![]);
 
 			// Test
-			assert_storage_noop!(assert!(exec_runner_call(eth_address, input).is_err()));
+			assert_storage_noop!(assert!(RunnerCallBuilder::new(
+				eth_address,
+				input,
+				H160::from_low_u64_be(FEE_PROXY)
+			)
+			.run()
+			.is_err()));
 		});
 }
 
@@ -258,7 +265,13 @@ fn evm_call_with_fee_preferences_no_liquidity_should_fail() {
 			let input = encode_fee_preferences_input(10, 50, vec![]);
 
 			// Test
-			assert_storage_noop!(assert!(exec_runner_call(eth_address, input).is_err()));
+			assert_storage_noop!(assert!(RunnerCallBuilder::new(
+				eth_address,
+				input,
+				H160::from_low_u64_be(FEE_PROXY)
+			)
+			.run()
+			.is_err()));
 		});
 }
 
@@ -278,6 +291,12 @@ fn evm_call_with_fee_preferences_no_balance_should_fail() {
 			let input = encode_fee_preferences_input(10, 50, vec![]);
 
 			// Test
-			assert_storage_noop!(assert!(exec_runner_call(eth_address, input).is_err()));
+			assert_storage_noop!(assert!(RunnerCallBuilder::new(
+				eth_address,
+				input,
+				H160::from_low_u64_be(FEE_PROXY)
+			)
+			.run()
+			.is_err()));
 		});
 }

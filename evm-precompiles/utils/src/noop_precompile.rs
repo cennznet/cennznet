@@ -23,7 +23,7 @@ use sp_std::marker::PhantomData;
 pub struct NoopPrecompile<T>(PhantomData<T>);
 
 impl<T> Precompile for NoopPrecompile<T> {
-	fn execute(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn execute(_handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// Return an error
 		Err(PrecompileFailure::Revert {
 			exit_status: ExitRevert::Reverted,

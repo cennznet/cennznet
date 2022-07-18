@@ -14,17 +14,21 @@
 */
 
 use cennznet_primitives::types::{AccountId, CollectionId, SerialNumber, SeriesId};
-use cennznet_runtime::{Nft, Runtime, TokenApprovals};
+use cennznet_runtime::constants::asset::CPAY_ASSET_ID;
+use cennznet_runtime::constants::currency::DOLLARS;
+use cennznet_runtime::{GenericAsset, Nft, Runtime, TokenApprovals};
 use crml_nft::MetadataScheme;
-use crml_support::PrefixedAddressMapping;
+use crml_support::{MultiCurrency, PrefixedAddressMapping};
 use frame_support::assert_ok;
-use pallet_evm_precompiles_erc721::{
-	Action, Address, AddressMapping, Context, Erc721IdConversion, Erc721PrecompileSet, EvmDataWriter, PrecompileSet,
-};
+use pallet_evm::{AddressMapping, ExitError, ExitReason};
+use pallet_evm_precompiles_erc721::{Action, Erc721IdConversion};
+use precompile_utils::prelude::*;
 use sp_core::{H160, U256};
 
 mod common;
 use common::mock::ExtBuilder;
+use common::precompiles_builder::RunnerCallBuilder;
+use precompile_utils::ExitRevert;
 
 fn setup_nft_series(token_owner: AccountId) -> (CollectionId, SeriesId, SerialNumber) {
 	let collection_owner_eth: H160 = b"test1000000000000000".into();
@@ -47,16 +51,6 @@ fn setup_nft_series(token_owner: AccountId) -> (CollectionId, SeriesId, SerialNu
 	(collection_id, 0, 0)
 }
 
-fn setup_context(collection_id: CollectionId, series_id: SeriesId, caller: H160) -> (H160, Context) {
-	let address: H160 = Runtime::runtime_id_to_evm_id((collection_id, series_id)).into();
-	let context: Context = Context {
-		address,
-		caller,
-		apparent_value: U256::default(),
-	};
-	(address, context)
-}
-
 fn setup_input_data(serial_number: SerialNumber, to: H160, from: H160, selector: Action) -> Vec<u8> {
 	// Write to input data
 	EvmDataWriter::new_with_selector(selector)
@@ -71,30 +65,26 @@ fn erc721_transfer_from() {
 	ExtBuilder::default().initial_balance(1).build().execute_with(|| {
 		let token_owner_eth: H160 = b"test2000000000000000".into();
 		let new_owner_eth: H160 = b"test3000000000000000".into();
+
 		let token_owner: AccountId = PrefixedAddressMapping::into_account_id(token_owner_eth.clone());
 		let new_owner: AccountId = PrefixedAddressMapping::into_account_id(new_owner_eth.clone());
+		let _ = GenericAsset::deposit_creating(&token_owner, CPAY_ASSET_ID, 100 * DOLLARS);
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
-		let (address, context) = setup_context(collection_id, series_id, token_owner_eth);
+		let address: H160 = Runtime::runtime_id_to_evm_id((collection_id, series_id)).into();
 		let input_data = setup_input_data(serial_number, new_owner_eth, token_owner_eth, Action::TransferFrom);
-		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
 		assert_eq!(
-			Nft::token_owner((collection_id, series_id), serial_number),
+			Nft::token_owner((collection_id, series_id), serial_number).unwrap(),
 			token_owner.clone()
 		);
+		assert_ok!(RunnerCallBuilder::new(token_owner_eth, input_data, address).run());
 
-		assert_ok!(precompile_set
-			.execute(
-				address.into(),
-				&input_data, //Build input data to convert to bytes
-				None,
-				&context,
-				false,
-			)
-			.unwrap());
 		// NFT changed ownership
-		assert_eq!(Nft::token_owner((collection_id, series_id), serial_number), new_owner);
+		assert_eq!(
+			Nft::token_owner((collection_id, series_id), serial_number).unwrap(),
+			new_owner
+		);
 	})
 }
 
@@ -104,25 +94,26 @@ fn erc721_transfer_from_caller_not_approved_should_fail() {
 		let token_owner_eth: H160 = b"test2000000000000000".into();
 		let new_owner_eth: H160 = b"test3000000000000000".into();
 		let token_owner: AccountId = PrefixedAddressMapping::into_account_id(token_owner_eth.clone());
+		let new_owner: AccountId = PrefixedAddressMapping::into_account_id(new_owner_eth.clone());
+		let _ = GenericAsset::deposit_creating(&new_owner, CPAY_ASSET_ID, 100 * DOLLARS);
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
-		let (address, context) = setup_context(collection_id, series_id, new_owner_eth);
+		let address: H160 = Runtime::runtime_id_to_evm_id((collection_id, series_id)).into();
 		let input_data = setup_input_data(serial_number, new_owner_eth, token_owner_eth, Action::TransferFrom);
-		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
-		assert!(precompile_set
-			.execute(
-				address.into(),
-				&input_data, //Build input data to convert to bytes
-				None,
-				&context,
-				false,
-			)
-			.unwrap()
-			.is_err());
+		assert_eq!(
+			RunnerCallBuilder::new(new_owner_eth, input_data, address)
+				.run()
+				.unwrap()
+				.exit_reason,
+			ExitReason::Error(ExitError::Other(("caller not approved").into()))
+		);
 
 		// Ownership shouldn't have transferred
-		assert_eq!(Nft::token_owner((collection_id, series_id), serial_number), token_owner);
+		assert_eq!(
+			Nft::token_owner((collection_id, series_id), serial_number).unwrap(),
+			token_owner
+		);
 	})
 }
 
@@ -134,21 +125,15 @@ fn erc721_approve_and_transfer() {
 		let new_owner_eth: H160 = b"test4000000000000000".into();
 		let token_owner: AccountId = PrefixedAddressMapping::into_account_id(token_owner_eth.clone());
 		let new_owner: AccountId = PrefixedAddressMapping::into_account_id(new_owner_eth.clone());
+		let approved_account: AccountId = PrefixedAddressMapping::into_account_id(approved_account_eth.clone());
+		let _ = GenericAsset::deposit_creating(&token_owner, CPAY_ASSET_ID, 100 * DOLLARS);
+		let _ = GenericAsset::deposit_creating(&approved_account, CPAY_ASSET_ID, 100 * DOLLARS);
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
-		let (address, context) = setup_context(collection_id, series_id, token_owner_eth);
+		let address: H160 = Runtime::runtime_id_to_evm_id((collection_id, series_id)).into();
 		let input_data = setup_input_data(serial_number, approved_account_eth, token_owner_eth, Action::Approve);
-		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
-		assert_ok!(precompile_set
-			.execute(
-				address.into(),
-				&input_data, //Build input data to convert to bytes
-				None,
-				&context,
-				false,
-			)
-			.unwrap());
+		assert_ok!(RunnerCallBuilder::new(token_owner_eth, input_data, address).run());
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
@@ -156,22 +141,15 @@ fn erc721_approve_and_transfer() {
 		);
 
 		// Transfer NFT from approved account
-		let (address, context) = setup_context(collection_id, series_id, approved_account_eth);
 		let input_data = setup_input_data(serial_number, new_owner_eth, token_owner_eth, Action::TransferFrom);
-		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
-		assert_ok!(precompile_set
-			.execute(
-				address.into(),
-				&input_data, //Build input data to convert to bytes
-				None,
-				&context,
-				false,
-			)
-			.unwrap());
+		assert_ok!(RunnerCallBuilder::new(approved_account_eth, input_data, address).run());
 
 		// NFT changed ownership
-		assert_eq!(Nft::token_owner((collection_id, series_id), serial_number), new_owner);
+		assert_eq!(
+			Nft::token_owner((collection_id, series_id), serial_number).unwrap(),
+			new_owner
+		);
 		// Approval should be removed
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
@@ -186,22 +164,20 @@ fn erc721_approve_caller_not_from_should_fail() {
 		let token_owner_eth: H160 = b"test2000000000000000".into();
 		let approved_account_eth: H160 = b"test3000000000000000".into();
 		let token_owner: AccountId = PrefixedAddressMapping::into_account_id(token_owner_eth.clone());
+		let approved_account: AccountId = PrefixedAddressMapping::into_account_id(approved_account_eth.clone());
+		let _ = GenericAsset::deposit_creating(&approved_account, CPAY_ASSET_ID, 100 * DOLLARS);
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
-		let (address, context) = setup_context(collection_id, series_id, approved_account_eth);
+		let address: H160 = Runtime::runtime_id_to_evm_id((collection_id, series_id)).into();
 		let input_data = setup_input_data(serial_number, approved_account_eth, token_owner_eth, Action::Approve);
-		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
-		assert!(precompile_set
-			.execute(
-				address.into(),
-				&input_data, //Build input data to convert to bytes
-				None,
-				&context,
-				false,
-			)
-			.unwrap()
-			.is_err());
+		assert_eq!(
+			RunnerCallBuilder::new(approved_account_eth, input_data, address)
+				.run()
+				.unwrap()
+				.exit_reason,
+			ExitReason::Error(ExitError::Other(("caller must be from").into()))
+		);
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
@@ -217,22 +193,20 @@ fn erc721_approve_caller_not_token_owner_should_fail() {
 		let approved_account_eth: H160 = b"test3000000000000000".into();
 		let new_owner_eth: H160 = b"test4000000000000000".into();
 		let token_owner: AccountId = PrefixedAddressMapping::into_account_id(token_owner_eth.clone());
+		let approved_account: AccountId = PrefixedAddressMapping::into_account_id(approved_account_eth.clone());
+		let _ = GenericAsset::deposit_creating(&approved_account, CPAY_ASSET_ID, 100 * DOLLARS);
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
-		let (address, context) = setup_context(collection_id, series_id, approved_account_eth);
+		let address: H160 = Runtime::runtime_id_to_evm_id((collection_id, series_id)).into();
 		let input_data = setup_input_data(serial_number, new_owner_eth, approved_account_eth, Action::Approve);
-		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
-		assert!(precompile_set
-			.execute(
-				address.into(),
-				&input_data, //Build input data to convert to bytes
-				None,
-				&context,
-				false,
-			)
-			.unwrap()
-			.is_err());
+		assert_eq!(
+			RunnerCallBuilder::new(approved_account_eth, input_data, address)
+				.run()
+				.unwrap()
+				.exit_reason,
+			ExitReason::Revert(ExitRevert::Reverted)
+		);
 
 		assert_eq!(
 			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),

@@ -29,7 +29,6 @@ use crml_support::{scale_wei_to_4dp, PrefixedAddressMapping, H160, U256};
 use frame_support::{
 	storage::StorageValue,
 	traits::{Currency, Get, OffchainWorker, OnFinalize, OnIdle, OnInitialize},
-	IterableStorageDoubleMap,
 };
 use hex_literal::hex;
 use pallet_ethereum::{Transaction, TransactionAction};
@@ -304,13 +303,11 @@ fn era_transaction_fees_collected() {
 			// Apply first extrinsic and check transaction rewards
 			let r = Executive::apply_extrinsic(xt_1.clone());
 			assert!(r.is_ok());
-			let mut era1_tx_fees = extrinsic_fee_for(&xt_1);
 			assert_eq!(Rewards::calculate_total_reward(era_duration_ms).transaction_fees, 0);
 
 			// Apply second extrinsic and check transaction rewards
 			let r2 = Executive::apply_extrinsic(xt_2.clone());
 			assert!(r2.is_ok());
-			era1_tx_fees += extrinsic_fee_for(&xt_2);
 			assert_eq!(Rewards::calculate_total_reward(era_duration_ms).transaction_fees, 0);
 
 			// Advancing sessions shouldn't change transaction rewards storage

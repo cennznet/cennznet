@@ -780,7 +780,7 @@ parameter_types! {
 	/// Floor network base fee per gas
 	/// 0.00015 CPAY per gas
 	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
-	pub const IsBaseFeeActive: bool = true;
+	pub const IsBaseFeeActive: bool = false;
 }
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
