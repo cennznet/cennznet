@@ -48,6 +48,20 @@ pub struct SimpleOffer<AccountId> {
 pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
 }
+
+// Information related to a specific series
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
+pub struct SeriesInformation<AccountId> {
+	// The owner of the series
+	pub owner: AccountId,
+	// A human friendly name
+	pub name: SeriesNameType,
+	// Series metadata reference scheme
+	pub metadata_scheme: MetadataScheme,
+	// configured royalties schedule
+	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
+}
+
 /// Denotes the metadata URI referencing scheme used by a series
 /// Enable token metadata URI construction by clients
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
@@ -125,8 +139,6 @@ pub type NFTSchema = Vec<(NFTAttributeName, NFTAttributeTypeId)>;
 #[derive(Default, Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CollectionInfo<AccountId> {
-	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_utf8"))]
-	pub name: CollectionNameType,
 	pub owner: AccountId,
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
 	pub royalties: Vec<(AccountId, Permill)>,
@@ -157,7 +169,6 @@ pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
 #[derive(Eq, PartialEq, Decode, Encode, Default, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct TokenInfo<AccountId> {
-	pub attributes: Vec<NFTAttributeValue>,
 	pub owner: AccountId,
 	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
 	pub royalties: Vec<(AccountId, Permill)>,
@@ -415,8 +426,8 @@ pub struct FixedPriceListing<T: Config> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
-/// NFT colleciton moniker
-pub type CollectionNameType = Vec<u8>;
+/// NFT series moniker
+pub type SeriesNameType = Vec<u8>;
 
 /// Auto-incrementing Uint
 /// Uniquely identifies a registered marketplace

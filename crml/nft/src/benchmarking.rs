@@ -23,7 +23,7 @@ use frame_system::RawOrigin;
 use sp_runtime::Permill;
 
 use crate::types::MAX_ENTITLEMENTS;
-use crate::{Module as Nft, MAX_COLLECTION_NAME_LENGTH};
+use crate::{Module as Nft, MAX_SERIES_NAME_LENGTH};
 
 /// payment asset
 const PAYMENT_ASSET: u32 = 16_000;
@@ -50,7 +50,7 @@ fn setup_collection<T: Config>(creator: T::AccountId) -> (CollectionId, Royaltie
 fn setup_token<T: Config>(owner: T::AccountId) -> CollectionId {
 	let creator: T::AccountId = whitelisted_caller();
 	let (collection_id, royalties) = setup_collection::<T>(creator.clone());
-	let collection_name = [1_u8; MAX_COLLECTION_NAME_LENGTH as usize].to_vec();
+	let collection_name = [1_u8; MAX_SERIES_NAME_LENGTH as usize].to_vec();
 	let _ = <Nft<T>>::create_collection(
 		RawOrigin::Signed(creator.clone()).into(),
 		collection_name,
@@ -85,7 +85,7 @@ benchmarks! {
 	create_collection {
 		let creator: T::AccountId = account("creator", 0, 0);
 		let (collection_id, royalties) = setup_collection::<T>(creator.clone());
-		let collection_name = [1_u8; MAX_COLLECTION_NAME_LENGTH as usize].to_vec();
+		let collection_name = [1_u8; MAX_SERIES_NAME_LENGTH as usize].to_vec();
 
 	}: _(RawOrigin::Signed(creator.clone()), collection_name, Some(royalties))
 	verify {
