@@ -16,7 +16,7 @@
 use super::StorageVersion as storage_version;
 use super::*;
 use crate::mock::{AccountId, Event, ExtBuilder, GenericAsset, Nft, System, Test};
-use cennznet_primitives::types::{CollectionId, SerialNumber, SeriesId, TokenId};
+use cennznet_primitives::types::{SerialNumber, SeriesId, TokenId};
 use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
@@ -47,60 +47,67 @@ fn has_event(
 		.is_some()
 }
 
-/// Generate the first `TokenId` for a collection's first series
-fn first_token_id(collection_id: CollectionId) -> TokenId {
-	(collection_id, 0, 0)
+/// Generate the first `TokenId` for a series
+fn first_token_id(series_id: SeriesId) -> TokenId {
+	(series_id, 0)
 }
 
-// Create an NFT collection
-// Returns the created `collection_id`
-fn setup_collection(owner: AccountId) -> CollectionId {
-	let collection_id = Nft::next_collection_id();
-	let collection_name = b"test-collection".to_vec();
-	assert_ok!(Nft::create_collection(Some(owner).into(), collection_name, None,));
-
-	collection_id
+// Create an NFT series
+// Returns the created `series_id`
+fn setup_series(owner: AccountId) -> SeriesId {
+	let series_id = Nft::next_series_id();
+	let series_name = b"test-series".to_vec();
+	let metadata_scheme = MetadataScheme::IpfsDir(b"<CID>".to_vec());
+	assert_ok!(Nft::create_series(
+		Some(owner).into(),
+		series_name,
+		0,
+		None,
+		metadata_scheme,
+		None
+	));
+	series_id
 }
 
-/// Setup a token, return collection id, token id, token owner
-fn setup_token() -> (CollectionId, TokenId, <Test as frame_system::Config>::AccountId) {
-	let collection_owner = 1_u64;
-	let collection_id = setup_collection(collection_owner);
+/// Setup a token, return series id, token id, token owner
+fn setup_token() -> (SeriesId, TokenId, AccountId) {
+	let series_owner = 1_u64;
+	let series_id = setup_series(series_owner);
 	let token_owner = 2_u64;
 	let token_id = first_token_id(collection_id);
-	assert_ok!(Nft::mint_series(
-		Some(collection_owner).into(),
-		collection_id,
-		1,
-		Some(token_owner),
-		MetadataScheme::IpfsDir(b"<CID>".to_vec()),
-		None,
-	));
+	assert_ok!(Nft::mint(Some(series_owner).into(), series_id, 1, Some(token_owner),));
 
-	(collection_id, token_id, token_owner)
+	(series_id, token_id, token_owner)
 }
 
-/// Setup a token, return collection id, token id, token owner
+/// Setup a token, return series id, token id, token owner
 fn setup_token_with_royalties(
 	royalties_schedule: RoyaltiesSchedule<AccountId>,
 	quantity: TokenCount,
-) -> (CollectionId, TokenId, <Test as frame_system::Config>::AccountId) {
-	let collection_owner = 1_u64;
-	let collection_id = setup_collection(collection_owner);
-	<SeriesRoyalties<Test>>::insert(collection_id, 0, royalties_schedule);
-
-	let token_owner = 2_u64;
-	let token_id = first_token_id(collection_id);
-	assert_ok!(Nft::mint_series(
-		Some(collection_owner).into(),
-		collection_id,
-		quantity,
-		Some(token_owner),
-		MetadataScheme::Https(b"example.com/metadata".to_vec()),
+) -> (SeriesId, TokenId, AccountId) {
+	let series_owner = 1_u64;
+	let series_id = Nft::next_series_id();
+	let series_name = b"test-series".to_vec();
+	let metadata_scheme = MetadataScheme::IpfsDir(b"<CID>".to_vec());
+	assert_ok!(Nft::create_series(
+		Some(series_owner).into(),
+		series_name,
+		0,
 		None,
+		metadata_scheme,
+		Some(royalties_schedule),
 	));
 
-	(collection_id, token_id, token_owner)
+	let token_owner = 2_u64;
+	let token_id = first_token_id(series_id);
+	assert_ok!(Nft::mint(
+		Some(series_owner).into(),
+		series_id,
+		quantity,
+		Some(token_owner),
+	));
+
+	(series_id, token_id, token_owner)
 }
 
 /// Create an offer on a token. Return offer_id, offer
@@ -139,130 +146,6 @@ fn make_new_simple_offer(
 	)));
 
 	(next_offer_id, offer)
-}
-
-#[test]
-fn migrate_to_metadata_scheme() {
-	ExtBuilder::default().build().execute_with(|| {
-		let (collection_id, token_id, token_owner) = setup_token();
-		let collection_owner = 1;
-		let series_id = token_id.1;
-
-		// not owner
-		assert_noop!(
-			Nft::migrate_to_metadata_scheme(
-				Some(token_owner + 1).into(),
-				collection_id,
-				series_id,
-				MetadataScheme::IpfsShared(b"qwerty".to_vec()),
-			),
-			Error::<Test>::NoPermission
-		);
-
-		// metadata already set
-		assert_noop!(
-			Nft::migrate_to_metadata_scheme(
-				Some(token_owner).into(),
-				collection_id,
-				series_id,
-				MetadataScheme::IpfsShared(b"qwerty".to_vec()),
-			),
-			Error::<Test>::NoPermission
-		);
-
-		// create a series, remove the metadatascheme, set it using migrate_to_metadata_scheme
-		assert_ok!(Nft::mint_series(
-			Some(collection_owner).into(),
-			collection_id,
-			5,
-			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
-			None,
-		));
-		SeriesMetadataScheme::remove(collection_id, series_id + 1);
-
-		// metadata update ok
-		assert_ok!(Nft::migrate_to_metadata_scheme(
-			Some(collection_owner).into(),
-			collection_id,
-			series_id + 1,
-			MetadataScheme::IpfsShared(b"qwerty".to_vec()),
-		));
-
-		assert_eq!(
-			SeriesMetadataScheme::get(collection_id, series_id + 1),
-			Some(MetadataScheme::IpfsShared(b"qwerty".to_vec())),
-		)
-	});
-}
-
-#[test]
-fn migration_v1_to_v2() {
-	use frame_support::traits::OnRuntimeUpgrade;
-	use migration::v1_storage;
-
-	ExtBuilder::default().build().execute_with(|| {
-		// setup old values
-		v1_storage::IsSingleIssue::insert(0, 5, true);
-		v1_storage::CollectionMetadataURI::insert(1, v1_storage::MetadataBaseURI::Ipfs);
-		v1_storage::SeriesMetadataURI::insert(3, 0, b"https://api.example.com/tokens".to_vec());
-		v1_storage::Listings::insert(
-			123,
-			v1_storage::Listing::<Test>::FixedPrice(v1_storage::FixedPriceListing::<Test> {
-				payment_asset: PAYMENT_ASSET,
-				fixed_price: 1_000,
-				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-				buyer: Some(5),
-				tokens: vec![(55, 2, 2)],
-				seller: 7,
-				royalties_schedule: Default::default(),
-			}),
-		);
-		v1_storage::Listings::insert(
-			124,
-			v1_storage::Listing::<Test>::Auction(v1_storage::AuctionListing::<Test> {
-				payment_asset: PAYMENT_ASSET,
-				reserve_price: 1_000,
-				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-				tokens: vec![(56, 1, 1)],
-				seller: 7,
-				royalties_schedule: Default::default(),
-			}),
-		);
-
-		// run upgrade
-		storage_version::put(Releases::V1 as u32); // rollback to v1
-		<Module<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
-
-		assert!(!v1_storage::IsSingleIssue::contains_key(0, 5));
-		assert!(!v1_storage::CollectionMetadataURI::contains_key(1));
-		assert_eq!(
-			Listings::<Test>::get(123).expect("listing exists"),
-			Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
-				payment_asset: PAYMENT_ASSET,
-				fixed_price: 1_000,
-				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-				buyer: Some(5),
-				tokens: vec![(55, 2, 2)],
-				seller: 7,
-				royalties_schedule: Default::default(),
-				marketplace_id: None,
-			}),
-		);
-		assert_eq!(
-			Listings::<Test>::get(124).expect("listing exists"),
-			Listing::<Test>::Auction(AuctionListing::<Test> {
-				payment_asset: PAYMENT_ASSET,
-				reserve_price: 1_000,
-				close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-				tokens: vec![(56, 1, 1)],
-				seller: 7,
-				royalties_schedule: Default::default(),
-				marketplace_id: None,
-			}),
-		);
-		assert_eq!(storage_version::get(), Releases::V2 as u32);
-	});
 }
 
 #[test]
@@ -1800,103 +1683,6 @@ fn bid_fails_prechecks() {
 }
 
 #[test]
-fn transfer_batch() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let token_owner = 2_u64;
-		let token_1_quantity = 3;
-		let series_id = Nft::next_series_id(collection_id);
-
-		assert_ok!(Nft::mint_series(
-			Some(collection_owner).into(),
-			collection_id,
-			token_1_quantity,
-			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
-			None,
-		));
-
-		// test
-		let tokens = vec![0, 1, 2];
-		let new_owner = 3_u64;
-		assert_ok!(Nft::transfer_batch(
-			Some(token_owner).into(),
-			collection_id,
-			series_id,
-			tokens.clone(),
-			new_owner,
-		));
-		assert!(has_event(RawEvent::Transfer(
-			token_owner,
-			collection_id,
-			series_id,
-			tokens.clone(),
-			new_owner
-		)));
-
-		assert_eq!(
-			Nft::collected_tokens(collection_id, &new_owner),
-			tokens
-				.iter()
-				.map(|sn| (collection_id, series_id, *sn))
-				.collect::<Vec<TokenId>>()
-		);
-		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
-	});
-}
-
-#[test]
-fn transfer_batch_fails() {
-	ExtBuilder::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let token_owner = 2_u64;
-		let series_id = Nft::next_series_id(collection_id);
-
-		assert_ok!(Nft::mint_series(
-			Some(collection_owner).into(),
-			collection_id,
-			3,
-			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
-			None,
-		));
-
-		// token 3 doesn't exist
-		let new_owner = 3_u64;
-		assert_noop!(
-			Nft::transfer_batch(
-				Some(token_owner).into(),
-				collection_id,
-				series_id,
-				vec![0, 3, 1],
-				new_owner,
-			),
-			Error::<Test>::NoPermission
-		);
-
-		// not owner
-		assert_noop!(
-			Nft::transfer_batch(
-				Some(token_owner + 1).into(),
-				collection_id,
-				series_id,
-				vec![0, 1, 2],
-				new_owner
-			),
-			Error::<Test>::NoPermission
-		);
-
-		// transfer empty ids should fail
-		assert_noop!(
-			Nft::transfer_batch(Some(token_owner).into(), collection_id, series_id, vec![], new_owner),
-			Error::<Test>::NoToken
-		);
-	});
-}
-
-#[test]
 fn mint_series() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
@@ -2858,144 +2644,5 @@ fn transfer_many_tokens_changes_token_balance() {
 			new_owner_map.insert((collection_id, series_id), changed_quantity);
 			assert_eq!(Nft::token_balance(new_owner), new_owner_map);
 		}
-	});
-}
-
-#[test]
-fn update_token_balance_works() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Runs update_token_balance on a series
-		let collection_owner = 1_u64;
-		let collection_id = setup_collection(collection_owner);
-		let series_id: SeriesId = 0;
-		let token_owner = 2_u64;
-		let quantity: TokenCount = 10;
-
-		assert_ok!(Nft::mint_series(
-			Some(collection_owner).into(),
-			collection_id,
-			1,
-			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
-			None,
-		));
-
-		let mut token_owners: Vec<u64> = vec![];
-		for i in 1..quantity {
-			let token_owner: u64 = collection_owner + 1 + (i as u64);
-			token_owners.push(token_owner);
-			assert_ok!(Nft::mint_additional(
-				Some(collection_owner).into(),
-				collection_id,
-				series_id,
-				1,
-				Some(token_owner),
-			));
-
-			// Remove token_balance storage to simulate before EVM update
-			TokenBalance::<Test>::remove(token_owner);
-			assert_eq!(Nft::token_balance(token_owner), BTreeMap::new());
-		}
-
-		// Update token balances to fix storage
-		assert_ok!(Nft::update_token_balance(
-			Some(100_u64).into(),
-			collection_id,
-			series_id,
-		));
-		// event logged
-		assert!(has_event(RawEvent::TokenBalancesUpdated(collection_id, series_id)));
-
-		// Check that storage for each owner is correct
-		// Initial owner
-		let mut owner_map = BTreeMap::new();
-		owner_map.insert((collection_id, series_id), 1);
-		assert_eq!(Nft::token_balance(token_owner), owner_map);
-		// additional owners
-		for owner in token_owners {
-			let mut owner_map = BTreeMap::new();
-			owner_map.insert((collection_id, series_id), 1);
-			assert_eq!(Nft::token_balance(owner), owner_map);
-		}
-	});
-}
-
-#[test]
-fn update_token_balance_no_collection_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Update token balances on no collection
-		assert_noop!(
-			Nft::update_token_balance(Some(100_u64).into(), 0, 0),
-			Error::<Test>::NoCollection
-		);
-	});
-}
-
-#[test]
-fn update_token_balance_no_series_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Update token balances on no series
-		let collection_id = setup_collection(1_u64);
-
-		assert_noop!(
-			Nft::update_token_balance(Some(100_u64).into(), collection_id, 0),
-			Error::<Test>::NoSeries
-		);
-	});
-}
-
-#[test]
-fn update_token_balance_multiple_collections() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Runs update_token_balance on a series while checking that it doesn't affect other collections
-		let collection_owner = 1_u64;
-		let collection_owner_2 = 200_u64;
-		let collection_id = setup_collection(collection_owner);
-		let collection_id_2 = setup_collection(collection_owner_2);
-		let series_id: SeriesId = 0;
-		let series_id_2: SeriesId = 0;
-		let token_owner = 2_u64;
-
-		// Mint first collection
-		let first_collection_quantity: TokenCount = 3;
-		assert_ok!(Nft::mint_series(
-			Some(collection_owner).into(),
-			collection_id,
-			first_collection_quantity,
-			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
-			None,
-		));
-		// Remove token_balance storage to simulate before EVM update
-		TokenBalance::<Test>::remove(token_owner);
-		assert_eq!(Nft::token_balance(token_owner), BTreeMap::new());
-
-		// Mint second collection with same owner
-		let second_collection_quantity: TokenCount = 5;
-		assert_ok!(Nft::mint_series(
-			Some(collection_owner_2).into(),
-			collection_id_2,
-			second_collection_quantity,
-			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
-			None,
-		));
-		// Check storage for token owner only shows second collection
-		let mut owner_map = BTreeMap::new();
-		owner_map.insert((collection_id_2, series_id_2), second_collection_quantity);
-		assert_eq!(Nft::token_balance(token_owner), owner_map);
-
-		// Update token balances to fix storage
-		assert_ok!(Nft::update_token_balance(
-			Some(100_u64).into(),
-			collection_id,
-			series_id,
-		));
-
-		// Check that storage for token owner is correct
-		let mut owner_map = BTreeMap::new();
-		owner_map.insert((collection_id, series_id), first_collection_quantity);
-		owner_map.insert((collection_id_2, series_id_2), second_collection_quantity);
-		assert_eq!(Nft::token_balance(token_owner), owner_map);
 	});
 }
