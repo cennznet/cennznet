@@ -115,6 +115,8 @@ impl StakingAmount for MockStakingAmount {
 			3 => 30_000_000,
 			4 => 30_000_000,
 			5 => 30_000_000,
+			6 => 30_000_000,
+			7 => 30_000_000,
 			_ => 0,
 		}
 	}
@@ -135,6 +137,8 @@ impl RegistrationInfo for MockRegistrationImplementation {
 			3 => 3,
 			4 => 2,
 			5 => 2,
+			6 => 2,
+			7 => 2,
 			_ => 0,
 		}
 	}
@@ -143,7 +147,7 @@ impl RegistrationInfo for MockRegistrationImplementation {
 parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
-	pub const MaxCouncilSize: u16 = 3;
+	pub const MaxCouncilSize: u16 = 5;
 	pub const MinimumRegisteredIdentities: u32 = 2;
 }
 impl crate::Config for Test {
