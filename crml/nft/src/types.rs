@@ -60,6 +60,8 @@ pub struct SeriesInformation<AccountId> {
 	pub metadata_scheme: MetadataScheme,
 	// configured royalties schedule
 	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
+	// Maximum number of tokens allowed in a series
+	pub max_issuance: Option<TokenCount>,
 }
 
 /// Denotes the metadata URI referencing scheme used by a series

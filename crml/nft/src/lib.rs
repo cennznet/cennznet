@@ -29,17 +29,15 @@
 //!
 
 use cennznet_primitives::types::{AssetId, Balance, SerialNumber, SeriesId, TokenId};
-use codec::{Decode, Encode};
 use crml_support::{log, IsTokenOwner, MultiCurrency, OnTransferSubscriber};
 use frame_support::{
 	ensure,
 	traits::{ExistenceRequirement, Imbalance, SameOrOther, WithdrawReasons},
 	transactional,
 };
-use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
-	DispatchResult, PerThing, Permill, RuntimeDebug,
+	DispatchResult, PerThing, Permill,
 };
 
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -65,15 +63,6 @@ pub const MAX_SERIES_LISTING_LIMIT: u16 = 100;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
-// A value placed in storage that represents the current version of the Democracy storage.
-// This value is used by the `on_runtime_upgrade` logic to determine whether we run
-// storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-enum Releases {
-	V1,
-	V2,
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
@@ -81,7 +70,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
@@ -105,9 +94,6 @@ pub mod pallet {
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
 		type DefaultListingDuration: Get<Self::BlockNumber>;
-		/// Maximum byte length of an NFT attribute
-		#[pallet::constant]
-		type MaxAttributeLength: Get<u8>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, CurrencyId = AssetId, Balance = Balance>;
 		/// Provides the public call to weight mapping
@@ -203,12 +189,6 @@ pub mod pallet {
 	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
 
-	/// Storage version of the pallet.
-	///
-	/// New networks start with last version.
-	#[pallet::storage]
-	pub(crate) type StorageVersion<T> = StorageValue<_, Releases>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -296,8 +276,6 @@ pub mod pallet {
 		OfferCancelled { offer_id: OfferId },
 		/// An offer has been cancelled
 		OfferAccepted { offer_id: OfferId, amount: Balance },
-		/// The token balances for a series have been updated
-		TokenBalancesUpdated { series_id: SeriesId },
 	}
 
 	#[pallet::error]
@@ -306,10 +284,6 @@ pub mod pallet {
 		SeriesNameInvalid,
 		/// No more Ids are available, they've been exhausted
 		NoAvailableIds,
-		/// Too many attributes in the provided schema or data
-		SchemaMaxAttributes,
-		/// Given attribute value is larger than the configured max.
-		MaxAttributeLength,
 		/// origin does not have permission for the operation (the token may not exist)
 		NoPermission,
 		/// The token does not exist
@@ -328,14 +302,10 @@ pub mod pallet {
 		BidTooLow,
 		/// Selling tokens from different series is not allowed
 		MixedBundleSale,
-		/// Tokens with different individual royalties cannot be sold together
-		RoyaltiesProtection,
 		/// The account_id hasn't been registered as a marketplace
 		MarketplaceNotRegistered,
 		/// The series does not exist
 		NoSeries,
-		/// The Series name has been set
-		NameAlreadySet,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
 		/// No offer exists for the given OfferId
@@ -348,6 +318,8 @@ pub mod pallet {
 		ZeroOffer,
 		/// Cannot make an offer on a token up for auction
 		TokenOnAuction,
+		/// Max issuance needs to be greater than 0 and initial_issuance
+		InvalidMaxIssuance,
 	}
 
 	#[pallet::hooks]
@@ -420,16 +392,18 @@ pub mod pallet {
 		/// Additional tokens can be minted via `mint_additional`
 		///
 		/// `name` - the name of the series
-		/// `quantity` - number of tokens to mint now
+		/// `initial_issuance` - number of tokens to mint now
+		/// `max_issuance` - maximum number of tokens allowed in series
 		/// `owner` - the token owner, defaults to the caller
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this series
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will apply to all tokens in the series by default.
-		#[pallet::weight(T::WeightInfo::mint_series(*quantity))]
+		#[pallet::weight(T::WeightInfo::mint_series(*initial_issuance))]
 		#[transactional]
 		pub fn create_series(
 			origin: OriginFor<T>,
 			name: SeriesNameType,
-			quantity: TokenCount,
+			initial_issuance: TokenCount,
+			max_issuance: Option<TokenCount>,
 			owner: Option<T::AccountId>,
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
@@ -439,6 +413,12 @@ pub mod pallet {
 			// Check we can issue the new tokens
 			let series_id = Self::next_series_id();
 			ensure!(series_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
+
+			// Check max issuance is valid
+			if let Some(max_issuance) = max_issuance {
+				ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
+				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+			}
 
 			// Validate series attributes
 			ensure!(
@@ -461,19 +441,20 @@ pub mod pallet {
 					name,
 					metadata_scheme,
 					royalties_schedule,
+					max_issuance,
 				},
 			);
 
 			// Now mint the series tokens
-			if quantity > Zero::zero() {
-				Self::do_mint(&owner, series_id, 0 as SerialNumber, quantity)?;
+			if initial_issuance > Zero::zero() {
+				Self::do_mint(&owner, series_id, 0 as SerialNumber, initial_issuance)?;
 			}
 			// will not overflow, asserted prior qed.
 			<NextSeriesId<T>>::mutate(|i| *i += SeriesId::one());
 
 			Self::deposit_event(Event::<T>::CreateSeries {
 				series_id,
-				token_count: quantity,
+				token_count: initial_issuance,
 				owner,
 			});
 
@@ -484,7 +465,7 @@ pub mod pallet {
 		///
 		/// `series_id` - the series to mint tokens in
 		/// `quantity` - how many tokens to mint
-		/// `owner` - the token owner, defaults to the caller if unspecified
+		/// `token_owner` - the token owner, defaults to the caller if unspecified
 		/// Caller must be the series owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
@@ -494,23 +475,29 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			series_id: SeriesId,
 			quantity: TokenCount,
-			owner: Option<T::AccountId>,
+			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
-			// Permission and existence check
-			if let Some(series_info) = Self::series_info(series_id) {
-				ensure!(series_info.owner == origin, Error::<T>::NoPermission);
-			} else {
-				return Err(Error::<T>::NoSeries.into());
-			}
-
 			let serial_number = Self::next_serial_number(series_id).unwrap_or_else(|| Default::default());
 			ensure!(
 				serial_number.checked_add(quantity).is_some(),
 				Error::<T>::NoAvailableIds
 			);
-			let owner = owner.unwrap_or(origin);
+
+			// Permission and existence check
+			if let Some(series_info) = Self::series_info(series_id) {
+				ensure!(series_info.owner == origin, Error::<T>::NoPermission);
+				if let Some(max_issuance) = series_info.max_issuance {
+					ensure!(
+						max_issuance >= serial_number.saturating_add(quantity),
+						Error::<T>::NoPermission
+					);
+				}
+			} else {
+				return Err(Error::<T>::NoSeries.into());
+			}
+
+			let owner = token_owner.unwrap_or(origin);
 
 			Self::do_mint(&owner, series_id, serial_number, quantity)?;
 			Self::deposit_event(Event::<T>::CreateTokens {
