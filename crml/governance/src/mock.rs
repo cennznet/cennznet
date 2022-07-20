@@ -147,7 +147,7 @@ impl RegistrationInfo for MockRegistrationImplementation {
 parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
-	pub const MaxCouncilSize: u16 = 5;
+	pub const MaxCouncilSize: u8 = 5;
 	pub const MinimumRegisteredIdentities: u32 = 2;
 }
 impl crate::Config for Test {

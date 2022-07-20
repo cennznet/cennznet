@@ -401,7 +401,8 @@ fn remove_council_member_should_update_votes() {
 		let call = "0x123456"; // Invalid call
 		let proposal_id = Governance::next_proposal_id();
 
-		setup_council_members(vec![voter_account, proposal_account, 3_u64, 4_u64, 6_u64]);
+		setup_council_members(vec![proposal_account, 3_u64, 4_u64, 6_u64]);
+		assert_eq!(Governance::council(), vec![3_u64, 4_u64, 6_u64, proposal_account]);
 
 		assert_ok!(Governance::submit_proposal(
 			frame_system::RawOrigin::Signed(proposal_account).into(),
@@ -410,43 +411,47 @@ fn remove_council_member_should_update_votes() {
 			enactment_delay
 		));
 
+		// Check votes are as expected
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0000_1000 as u128
+		);
+
+		// Add new council member
+		assert_ok!(Governance::add_council_member(
+			frame_system::RawOrigin::Root.into(),
+			voter_account
+		));
+		assert_eq!(
+			Governance::council(),
+			vec![3_u64, 4_u64, voter_account, 6_u64, proposal_account]
+		);
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0001_0000 as u128
+		);
+
+		// Vote from new council member
 		assert_ok!(Governance::vote_on_proposal(
 			frame_system::RawOrigin::Signed(voter_account).into(),
 			proposal_id,
 			true,
 		));
-
-		let mut votes = ProposalVoteInfo::default();
-		votes.record_vote(
-			Governance::council()
-				.iter()
-				.position(|x| *x == proposal_account)
-				.unwrap() as u8,
-			true,
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0001_0100 as u128
 		);
-		votes.record_vote(
-			Governance::council().iter().position(|x| *x == 5_u64).unwrap() as u8,
-			true,
-		);
-		// Check votes are as expected
-		assert_eq!(Governance::proposal_votes(proposal_id), votes);
 
 		// Remove the voter account from the council
 		assert_ok!(Governance::remove_council_member(
 			frame_system::RawOrigin::Root.into(),
 			voter_account
 		));
-
-		// Check votes have been updated
-		let mut votes = ProposalVoteInfo::default();
-		votes.record_vote(
-			Governance::council()
-				.iter()
-				.position(|x| *x == proposal_account)
-				.unwrap() as u8,
-			true,
+		assert_eq!(Governance::council(), vec![3_u64, 4_u64, 6_u64, proposal_account]);
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0000_1000 as u128
 		);
-		assert_eq!(Governance::proposal_votes(proposal_id), votes);
 	});
 }
 
