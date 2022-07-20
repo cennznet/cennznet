@@ -252,6 +252,20 @@ mod tests {
 		votes.remove_voter(6_u8);
 		assert_eq!(votes.vote_bits().0, 0b0000_0100 as u128);
 		assert_eq!(votes.active_bits().0, 0b0000_0100 as u128);
+
+		votes.remove_voter(2_u8);
+		assert_eq!(votes.vote_bits().0, 0b0000_0000 as u128);
+		assert_eq!(votes.active_bits().0, 0b0000_0000 as u128);
+
+		votes.record_vote(127_u8, true);
+		votes.record_vote(3_u8, true);
+		let vote = 0b0000_1000 as u128;
+		assert_eq!(votes.vote_bits().0, (1_u128 << 127) + vote);
+		assert_eq!(votes.active_bits().0, (1_u128 << 127) + vote);
+
+		votes.remove_voter(127_u8);
+		assert_eq!(votes.vote_bits().0, vote);
+		assert_eq!(votes.active_bits().0, vote);
 	}
 
 	#[test]
@@ -275,6 +289,20 @@ mod tests {
 		votes.remove_voter(131_u8);
 		assert_eq!(votes.vote_bits().1, 0b0000_0001 as u128);
 		assert_eq!(votes.active_bits().1, 0b0000_0001 as u128);
+
+		votes.remove_voter(128_u8);
+		assert_eq!(votes.vote_bits().1, 0b0000_0000 as u128);
+		assert_eq!(votes.active_bits().1, 0b0000_0000 as u128);
+
+		votes.record_vote(255_u8, true);
+		votes.record_vote(131_u8, true);
+		let vote = 0b0000_1000 as u128;
+		assert_eq!(votes.vote_bits().1, (1_u128 << 127) + vote);
+		assert_eq!(votes.active_bits().1, (1_u128 << 127) + vote);
+
+		votes.remove_voter(255_u8);
+		assert_eq!(votes.vote_bits().1, vote);
+		assert_eq!(votes.active_bits().1, vote);
 	}
 
 	#[test]
