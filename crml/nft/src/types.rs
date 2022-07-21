@@ -533,18 +533,15 @@ mod test {
 	#[test]
 	fn collection_info_should_serialize() {
 		ExtBuilder::default().build().execute_with(|| {
-			let collection_name = b"test-collection".to_vec();
 			let collection_owner = 1_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
 				entitlements: vec![(3_u64, Permill::from_float(0.2)), (4_u64, Permill::from_float(0.3))],
 			};
 			let collection_info = CollectionInfo {
-				name: collection_name,
 				owner: collection_owner,
 				royalties: royalties.entitlements,
 			};
 			let json_str = "{\
-				\"name\":\"test-collection\",\
 				\"owner\":1,\
 				\"royalties\":[\
 					[\
@@ -569,41 +566,13 @@ mod test {
 			let royalties = RoyaltiesSchedule::<AccountId> {
 				entitlements: vec![(3_u64, Permill::from_float(0.2))],
 			};
-			let series_attributes = vec![
-				NFTAttributeValue::I32(500),
-				NFTAttributeValue::U8(100),
-				NFTAttributeValue::U16(500),
-				NFTAttributeValue::U32(500),
-				NFTAttributeValue::U64(500),
-				NFTAttributeValue::U128(500),
-				NFTAttributeValue::Bytes32([0x55; 32]),
-				NFTAttributeValue::Bytes(hex::decode("5000").unwrap()),
-				NFTAttributeValue::String(Vec::from("Test")),
-				NFTAttributeValue::Hash([0x55; 32]),
-				NFTAttributeValue::Timestamp(500),
-				NFTAttributeValue::Url(Vec::from("www.centrality.ai")),
-			];
 
 			let token_info = TokenInfo {
-				attributes: series_attributes,
 				owner: collection_owner,
 				royalties: royalties.entitlements,
 			};
 
 			let json_str = "{\
-				\"attributes\":[\
-				500,\
-				100,\
-				500,\
-				500,\
-				500,\
-				\"500\",\
-				\"0x5555555555555555555555555555555555555555555555555555555555555555\",\
-				\"0x5000\",\
-				\"Test\",\
-				\"0x5555555555555555555555555555555555555555555555555555555555555555\",\
-				500,\
-				\"www.centrality.ai\"],\
 				\"owner\":1,\
 				\"royalties\":[\
 					[\
@@ -625,7 +594,7 @@ mod test {
 			let royalties = RoyaltiesSchedule::<AccountId> {
 				entitlements: vec![(3_u64, Permill::from_float(0.2))],
 			};
-			let token_id: TokenId = (0, 0, 0);
+			let token_id: TokenId = (0, 0);
 
 			let listing_response = ListingResponse {
 				id: 10,
@@ -647,7 +616,7 @@ mod test {
 			\"end_block\":10,\
 			\"buyer\":2,\
 			\"seller\":1,\
-			\"token_ids\":[[0,0,0]],\
+			\"token_ids\":[[0,0]],\
 			\"royalties\":[[3,\"0.200000\"]]}\
 			";
 

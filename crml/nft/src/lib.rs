@@ -404,7 +404,7 @@ pub mod pallet {
 			name: SeriesNameType,
 			initial_issuance: TokenCount,
 			max_issuance: Option<TokenCount>,
-			owner: Option<T::AccountId>,
+			token_owner: Option<T::AccountId>,
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
@@ -433,11 +433,10 @@ pub mod pallet {
 				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 			}
 
-			let owner = owner.unwrap_or(origin);
 			<SeriesInfo<T>>::insert(
 				series_id,
 				SeriesInformation {
-					owner: owner.clone(),
+					owner: origin.clone(),
 					name,
 					metadata_scheme,
 					royalties_schedule,
@@ -446,8 +445,9 @@ pub mod pallet {
 			);
 
 			// Now mint the series tokens
+			let token_owner = token_owner.unwrap_or(origin);
 			if initial_issuance > Zero::zero() {
-				Self::do_mint(&owner, series_id, 0 as SerialNumber, initial_issuance)?;
+				Self::do_mint(&token_owner, series_id, 0 as SerialNumber, initial_issuance)?;
 			}
 			// will not overflow, asserted prior qed.
 			<NextSeriesId<T>>::mutate(|i| *i += SeriesId::one());
@@ -455,7 +455,7 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::CreateSeries {
 				series_id,
 				token_count: initial_issuance,
-				owner,
+				owner: token_owner,
 			});
 
 			Ok(())
@@ -1220,6 +1220,10 @@ impl<T: Config> Pallet<T> {
 		<TokenBalance<T>>::mutate(&new_owner, |mut balances| {
 			if let Some(balances) = &mut balances {
 				*balances.entry(series_id).or_default() += quantity
+			} else {
+				let mut map = BTreeMap::new();
+				map.insert(series_id, quantity);
+				*balances = Some(map)
 			}
 		});
 
@@ -1244,16 +1248,25 @@ impl<T: Config> Pallet<T> {
 		<TokenBalance<T>>::mutate(&owner, |mut balances| {
 			if let Some(balances) = &mut balances {
 				*balances.entry(series_id).or_default() += quantity
+			} else {
+				let mut map = BTreeMap::new();
+				map.insert(series_id, quantity);
+				*balances = Some(map)
 			}
 		});
+
 		<SeriesIssuance<T>>::mutate(series_id, |mut q| {
 			if let Some(q) = &mut q {
 				*q = q.saturating_add(quantity)
+			} else {
+				*q = Some(quantity)
 			}
 		});
 		<NextSerialNumber<T>>::mutate(series_id, |mut q| {
 			if let Some(q) = &mut q {
 				*q = q.saturating_add(quantity)
+			} else {
+				*q = Some(quantity)
 			}
 		});
 

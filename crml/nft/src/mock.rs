@@ -94,7 +94,6 @@ parameter_types! {
 impl crate::Config for Test {
 	type Event = Event;
 	type DefaultListingDuration = DefaultListingDuration;
-	type MaxAttributeLength = MaxAttributeLength;
 	type MultiCurrency = GenericAsset;
 	type WeightInfo = ();
 	type OnTransferSubscription = MockTransferSubscriber;
