@@ -130,13 +130,15 @@ impl ProposalVoteInfo {
 	/// Insert a new voter at index
 	pub fn insert_voter(&mut self, index: u8) {
 		// bitfields has max capacity for votes up to u8 / 255
-		// shift all votes at index to the right
+		// shift all votes at index to the left
+
 		match index {
 			0..=127 => {
 				let low_mask = (1_u128 << index) - 1;
 				let high_mask = !low_mask;
 				self.active_bits.0 = ((self.active_bits.0 & high_mask) << 1) | (self.active_bits.0 & low_mask);
 				self.vote_bits.0 = ((self.vote_bits.0 & high_mask) << 1) | (self.vote_bits.0 & low_mask);
+				// TODO If index is lower than 127, all votes above 127 need to shift
 			}
 			128..=255 => {
 				let low_mask = (1_u128 << (index - 128)) - 1;
@@ -147,21 +149,24 @@ impl ProposalVoteInfo {
 		}
 	}
 	/// Remove a voter at index
-	/// shifts all votes after index to the left
+	/// shifts all votes before index to the right
 	pub fn remove_voter(&mut self, index: u8) {
 		// bitfields has max capacity for votes up to u8 / 255
-		// Shift all votes at index to the right
+		// Shift all votes before index to the right
+		// Leaves all votes after index as they are
+
 		match index {
 			0..=127 => {
 				let low_mask = (1_u128 << index) - 1;
-				let high_mask = !low_mask;
+				let high_mask = (!low_mask) << 1;
 				self.active_bits.0 = ((self.active_bits.0 & high_mask) >> 1) | (self.active_bits.0 & low_mask);
 				self.vote_bits.0 = ((self.vote_bits.0 & high_mask) >> 1) | (self.vote_bits.0 & low_mask);
+				// TODO If index is higher than 127, all votes above 127 need to shift
 			}
 			128..=255 => {
 				let index = index - 128;
 				let low_mask = (1_u128 << index) - 1;
-				let high_mask = !low_mask;
+				let high_mask = (!low_mask) << 1;
 				self.active_bits.1 = ((self.active_bits.1 & high_mask) >> 1) | (self.active_bits.1 & low_mask);
 				self.vote_bits.1 = ((self.vote_bits.1 & high_mask) >> 1) | (self.vote_bits.1 & low_mask);
 			}
@@ -223,27 +228,81 @@ mod tests {
 	}
 
 	#[test]
-	fn remove_vote() {
+	fn remove_vote_lower_128() {
 		let mut votes = ProposalVoteInfo::default();
-		votes.record_vote(0_u8, true);
-		votes.record_vote(1_u8, true);
 		votes.record_vote(2_u8, true);
-		// 1010_0000
-		// 1110_0000
-		votes.remove_voter(0);
-		assert_eq!(votes.vote_bits().0, 0b0000_0011 as u128);
-		assert_eq!(votes.active_bits().0, 0b0000_0011 as u128);
+		votes.record_vote(4_u8, true);
+		assert_eq!(votes.vote_bits().0, 0b0001_0100 as u128);
+		assert_eq!(votes.active_bits().0, 0b0001_0100 as u128);
+		assert_eq!(votes.vote_bits().1, 0b0000_0000 as u128);
+		assert_eq!(votes.active_bits().1, 0b0000_0000 as u128);
 
-		votes.record_vote(2_u8, true);
-		assert_eq!(votes.vote_bits().0, 0b0000_0111 as u128);
-		assert_eq!(votes.active_bits().0, 0b0000_0111 as u128);
-		votes.remove_voter(1);
-		assert_eq!(votes.vote_bits().0, 0b0000_0011 as u128);
-		assert_eq!(votes.active_bits().0, 0b0000_0011 as u128);
+		votes.remove_voter(2_u8);
+		assert_eq!(votes.vote_bits().0, 0b0000_1000 as u128);
+		assert_eq!(votes.active_bits().0, 0b0000_1000 as u128);
+
+		votes.record_vote(7_u8, true);
+		assert_eq!(votes.vote_bits().0, 0b1000_1000 as u128);
+		assert_eq!(votes.active_bits().0, 0b1000_1000 as u128);
+
+		votes.remove_voter(0_u8);
+		assert_eq!(votes.vote_bits().0, 0b0100_0100 as u128);
+		assert_eq!(votes.active_bits().0, 0b0100_0100 as u128);
+
+		votes.remove_voter(6_u8);
+		assert_eq!(votes.vote_bits().0, 0b0000_0100 as u128);
+		assert_eq!(votes.active_bits().0, 0b0000_0100 as u128);
+
+		votes.remove_voter(2_u8);
+		assert_eq!(votes.vote_bits().0, 0b0000_0000 as u128);
+		assert_eq!(votes.active_bits().0, 0b0000_0000 as u128);
+
+		votes.record_vote(127_u8, true);
 		votes.record_vote(3_u8, true);
-		votes.remove_voter(1);
-		assert_eq!(votes.vote_bits().0, 0b0000_0101 as u128);
-		assert_eq!(votes.active_bits().0, 0b0000_0101 as u128);
+		let vote = 0b0000_1000 as u128;
+		assert_eq!(votes.vote_bits().0, (1_u128 << 127) + vote);
+		assert_eq!(votes.active_bits().0, (1_u128 << 127) + vote);
+
+		votes.remove_voter(127_u8);
+		assert_eq!(votes.vote_bits().0, vote);
+		assert_eq!(votes.active_bits().0, vote);
+	}
+
+	#[test]
+	fn remove_vote_upper_128() {
+		let mut votes = ProposalVoteInfo::default();
+		votes.record_vote(128_u8, true);
+		votes.record_vote(130_u8, true);
+		assert_eq!(votes.vote_bits().0, 0b0000_0000 as u128);
+		assert_eq!(votes.active_bits().0, 0b0000_0000 as u128);
+		assert_eq!(votes.vote_bits().1, 0b0000_0101 as u128);
+		assert_eq!(votes.active_bits().1, 0b0000_0101 as u128);
+
+		votes.record_vote(132_u8, true);
+		assert_eq!(votes.vote_bits().1, 0b0001_0101 as u128);
+		assert_eq!(votes.active_bits().1, 0b0001_0101 as u128);
+
+		votes.remove_voter(130_u8);
+		assert_eq!(votes.vote_bits().1, 0b0000_1001 as u128);
+		assert_eq!(votes.active_bits().1, 0b0000_1001 as u128);
+
+		votes.remove_voter(131_u8);
+		assert_eq!(votes.vote_bits().1, 0b0000_0001 as u128);
+		assert_eq!(votes.active_bits().1, 0b0000_0001 as u128);
+
+		votes.remove_voter(128_u8);
+		assert_eq!(votes.vote_bits().1, 0b0000_0000 as u128);
+		assert_eq!(votes.active_bits().1, 0b0000_0000 as u128);
+
+		votes.record_vote(255_u8, true);
+		votes.record_vote(131_u8, true);
+		let vote = 0b0000_1000 as u128;
+		assert_eq!(votes.vote_bits().1, (1_u128 << 127) + vote);
+		assert_eq!(votes.active_bits().1, (1_u128 << 127) + vote);
+
+		votes.remove_voter(255_u8);
+		assert_eq!(votes.vote_bits().1, vote);
+		assert_eq!(votes.active_bits().1, vote);
 	}
 
 	#[test]

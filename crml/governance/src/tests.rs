@@ -352,6 +352,110 @@ fn vote_on_proposal_same_account_should_fail() {
 }
 
 #[test]
+fn vote_on_proposal_new_council_member_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let proposal_account = 4_u64;
+		let voting_account = 3_u64;
+		let justification_uri: Vec<u8> = vec![0];
+		let enactment_delay = 1;
+		let call = "0x123456"; // Invalid call
+		let proposal_id = Governance::next_proposal_id();
+
+		// Add first council member
+		assert_ok!(Governance::add_council_member(
+			frame_system::RawOrigin::Root.into(),
+			proposal_account
+		));
+
+		assert_ok!(Governance::submit_proposal(
+			frame_system::RawOrigin::Signed(proposal_account).into(),
+			call.into(),
+			justification_uri.clone(),
+			enactment_delay
+		));
+
+		// Add first council member
+		assert_ok!(Governance::add_council_member(
+			frame_system::RawOrigin::Root.into(),
+			voting_account
+		));
+
+		assert_noop!(
+			Governance::vote_on_proposal(
+				frame_system::RawOrigin::Signed(proposal_account).into(),
+				proposal_id,
+				true,
+			),
+			Error::<Test>::DoubleVote
+		);
+	});
+}
+
+#[test]
+fn remove_council_member_should_update_votes() {
+	ExtBuilder::default().build().execute_with(|| {
+		let proposal_account = 7_u64;
+		let voter_account = 5_u64;
+		let justification_uri: Vec<u8> = vec![0];
+		let enactment_delay = 1;
+		let call = "0x123456"; // Invalid call
+		let proposal_id = Governance::next_proposal_id();
+
+		setup_council_members(vec![proposal_account, 3_u64, 4_u64, 6_u64]);
+		assert_eq!(Governance::council(), vec![3_u64, 4_u64, 6_u64, proposal_account]);
+
+		assert_ok!(Governance::submit_proposal(
+			frame_system::RawOrigin::Signed(proposal_account).into(),
+			call.into(),
+			justification_uri.clone(),
+			enactment_delay
+		));
+
+		// Check votes are as expected
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0000_1000 as u128
+		);
+
+		// Add new council member
+		assert_ok!(Governance::add_council_member(
+			frame_system::RawOrigin::Root.into(),
+			voter_account
+		));
+		assert_eq!(
+			Governance::council(),
+			vec![3_u64, 4_u64, voter_account, 6_u64, proposal_account]
+		);
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0001_0000 as u128
+		);
+
+		// Vote from new council member
+		assert_ok!(Governance::vote_on_proposal(
+			frame_system::RawOrigin::Signed(voter_account).into(),
+			proposal_id,
+			true,
+		));
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0001_0100 as u128
+		);
+
+		// Remove the voter account from the council
+		assert_ok!(Governance::remove_council_member(
+			frame_system::RawOrigin::Root.into(),
+			voter_account
+		));
+		assert_eq!(Governance::council(), vec![3_u64, 4_u64, 6_u64, proposal_account]);
+		assert_eq!(
+			Governance::proposal_votes(proposal_id).vote_bits().0,
+			0b0000_1000 as u128
+		);
+	});
+}
+
+#[test]
 fn vote_on_proposal_not_councilor_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let proposal_account = 3_u64;

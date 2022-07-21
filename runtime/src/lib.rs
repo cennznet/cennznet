@@ -465,7 +465,7 @@ impl pallet_sudo::Config for Runtime {
 
 parameter_types! {
 	/// Max. members of the council
-	pub const MaxCouncilSize: u16 = 255;
+	pub const MaxCouncilSize: u8 = 128;
 	pub storage MinimumRegisteredIdentities: u32 = 2;
 }
 impl crml_governance::Config for Runtime {

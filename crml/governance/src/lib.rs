@@ -38,10 +38,8 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use sp_runtime::traits::Zero;
-use sp_runtime::Permill;
+use sp_runtime::{traits::Zero, Permill};
 use sp_std::prelude::*;
-
 /// Identifies governance scheduled calls
 const GOVERNANCE_ID: LockIdentifier = *b"governan";
 /// The length in blocks of a referendum voting cycle
@@ -53,7 +51,7 @@ pub(crate) const LOG_TARGET: &str = "gov";
 
 pub trait Config: frame_system::Config {
 	/// Maximum size of the council
-	type MaxCouncilSize: Get<u16>;
+	type MaxCouncilSize: Get<u8>;
 	/// Minimum registered identities for voters and councilors
 	type MinimumRegisteredIdentities: Get<u32>;
 	/// The Scheduler.
@@ -193,6 +191,7 @@ decl_module! {
 			Self::check_council_account_validity(&origin)?;
 			let sponsor_idx = Self::council().binary_search(&origin);
 			ensure!(sponsor_idx.is_ok(), Error::<T>::NotCouncilor);
+
 			let proposal_id = Self::next_proposal_id();
 			let _ = T::Currency::reserve(&origin, Self::proposal_bond())?;
 			let enactment_delay = sp_std::cmp::max(T::BlockNumber::from(1u32), enactment_delay);
@@ -222,6 +221,7 @@ decl_module! {
 			vote: bool,
 		) {
 			let origin = ensure_signed(origin)?;
+
 			let voter_idx = Self::council().binary_search(&origin);
 			ensure!(voter_idx.is_ok(), Error::<T>::NotCouncilor);
 
@@ -271,13 +271,17 @@ decl_module! {
 		) {
 			ensure_root(origin)?;
 			let mut council = Self::council();
-			// TODO: add voter to all active proposals
 
 			// Validate council members identity and staking assets
 			Self::check_council_account_validity(&new_member)?;
 
 			ensure!(council.len() < T::MaxCouncilSize::get() as usize, Error::<T>::MaxCouncilReached);
 			if let Err(idx) = council.binary_search(&new_member) {
+				// Update existing proposal votes
+				ProposalVotes::translate::<ProposalVoteInfo, _>(|_, mut vote_info| {
+					vote_info.insert_voter(idx as u8);
+					Some(vote_info)
+				});
 				council.insert(idx, new_member);
 				Council::<T>::put(council);
 			}
@@ -285,6 +289,8 @@ decl_module! {
 
 		/// Remove a member from the council
 		/// This must be submitted like any other proposal
+		/// If the vote weight goes above 50% after the councillor is removed,
+		/// another vote is still required for the proposal to go ahead
 		#[weight = 100_000]
 		fn remove_council_member(
 			origin,
@@ -293,8 +299,13 @@ decl_module! {
 			ensure_root(origin)?;
 			let mut council = Self::council();
 			ensure!(council.len() > 1, Error::<T>::MinCouncilReached);
-			// TODO: remove voter from all active proposals
+
 			if let Ok(idx) = council.binary_search(&remove_member) {
+				// Update existing proposal votes
+				ProposalVotes::translate::<ProposalVoteInfo, _>(|_, mut vote_info| {
+					vote_info.remove_voter(idx as u8);
+					Some(vote_info)
+				});
 				council.remove(idx);
 				Council::<T>::put(council);
 			}
