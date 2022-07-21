@@ -320,6 +320,8 @@ pub mod pallet {
 		TokenOnAuction,
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		InvalidMaxIssuance,
+		/// The series max issuance has been reached and no more tokens can be minted
+		MaxIssuanceReached,
 	}
 
 	#[pallet::hooks]
@@ -490,7 +492,7 @@ pub mod pallet {
 				if let Some(max_issuance) = series_info.max_issuance {
 					ensure!(
 						max_issuance >= serial_number.saturating_add(quantity),
-						Error::<T>::NoPermission
+						Error::<T>::MaxIssuanceReached
 					);
 				}
 			} else {

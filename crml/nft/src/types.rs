@@ -587,9 +587,9 @@ mod test {
 	}
 
 	#[test]
-	fn collection_listings_should_serialize() {
+	fn series_listings_should_serialize() {
 		ExtBuilder::default().build().execute_with(|| {
-			let collection_owner = 1_u64;
+			let series_owner = 1_u64;
 			let buyer = 2_u64;
 			let royalties = RoyaltiesSchedule::<AccountId> {
 				entitlements: vec![(3_u64, Permill::from_float(0.2))],
@@ -603,7 +603,7 @@ mod test {
 				price: 10,
 				end_block: 10,
 				buyer: Some(buyer),
-				seller: collection_owner,
+				seller: series_owner,
 				royalties: royalties.entitlements,
 				token_ids: vec![token_id],
 			};

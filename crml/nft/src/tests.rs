@@ -1726,6 +1726,79 @@ fn create_series() {
 }
 
 #[test]
+fn mint_over_max_issuance_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let series_owner = 1_u64;
+		let token_owner = 2_u64;
+		let initial_issuance = 2;
+		let max_issuance = 5;
+		let series_id = Nft::next_series_id();
+
+		// mint token Ids 0-1
+		assert_ok!(Nft::create_series(
+			Some(series_owner).into(),
+			b"test-series".to_vec(),
+			initial_issuance,
+			Some(max_issuance),
+			Some(token_owner),
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+		assert_eq!(Nft::series_issuance(series_id).unwrap(), initial_issuance);
+
+		// Mint tokens 2-5
+		assert_ok!(Nft::mint(Some(series_owner).into(), series_id, 3, Some(token_owner)));
+		assert_eq!(Nft::series_issuance(series_id).unwrap(), initial_issuance + 3);
+
+		// No more can be minted as max issuance has been reached
+		assert_noop!(
+			Nft::mint(Some(series_owner).into(), series_id, 1, Some(token_owner)),
+			Error::<Test>::MaxIssuanceReached
+		);
+
+		// Even if tokens are burned, more can't be minted
+		assert_ok!(Nft::burn(Some(token_owner).into(), (series_id, 0)));
+		assert_noop!(
+			Nft::mint(Some(series_owner).into(), series_id, 1, Some(token_owner)),
+			Error::<Test>::MaxIssuanceReached
+		);
+	});
+}
+
+#[test]
+fn invalid_max_issuance_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Max issuance of 0 should fail
+		assert_noop!(
+			Nft::create_series(
+				Some(1_u64).into(),
+				b"test-series".to_vec(),
+				0,
+				Some(0),
+				None,
+				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				None,
+			),
+			Error::<Test>::InvalidMaxIssuance
+		);
+
+		// Max issuance lower than initial issuance should fail
+		assert_noop!(
+			Nft::create_series(
+				Some(1_u64).into(),
+				b"test-series".to_vec(),
+				5,
+				Some(2),
+				None,
+				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				None,
+			),
+			Error::<Test>::InvalidMaxIssuance
+		);
+	});
+}
+
+#[test]
 fn mint_fails() {
 	ExtBuilder::default().build().execute_with(|| {
 		let series_owner = 1_u64;
