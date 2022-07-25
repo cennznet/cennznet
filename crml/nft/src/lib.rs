@@ -217,26 +217,41 @@ pub mod pallet {
 			serial_number: SerialNumber,
 		},
 		/// A fixed price sale has been listed
-		FixedPriceSaleListed {
-			series_id: SeriesId,
+		ListFixedPriceSale {
+			tokens: Vec<TokenId>,
 			listing_id: ListingId,
 			marketplace_id: Option<MarketplaceId>,
+			price: Balance,
+			seller: T::AccountId,
 		},
 		/// A fixed price sale has completed
-		FixedPriceSaleComplete {
-			series_id: SeriesId,
+		CompleteFixedPriceSale {
+			tokens: Vec<TokenId>,
 			listing_id: ListingId,
+			price: Balance,
 			buyer: T::AccountId,
+			seller: T::AccountId,
 		},
 		/// A fixed price sale has closed without selling
-		FixedPriceSaleClosed { series_id: SeriesId, listing_id: ListingId },
-		///A fixed price sale has had its price updated
-		FixedPriceSalePriceUpdated { series_id: SeriesId, listing_id: ListingId },
+		CloseFixedPriceSale {
+			tokens: Vec<TokenId>,
+			listing_id: ListingId,
+			reason: FixedPriceClosureReason,
+		},
+		/// A fixed price sale has had its price updated
+		UpdateFixedPriceSalePrice {
+			tokens: Vec<TokenId>,
+			listing_id: ListingId,
+			new_price: Balance,
+		},
 		/// An auction has opened
 		AuctionOpen {
-			series_id: SeriesId,
+			tokens: Vec<TokenId>,
+			payment_asset: AssetId,
+			reserve_price: Balance,
 			listing_id: ListingId,
 			marketplace_id: Option<MarketplaceId>,
+			seller: T::AccountId,
 		},
 		/// An auction has sold
 		AuctionSold {
@@ -247,25 +262,26 @@ pub mod pallet {
 			winner: T::AccountId,
 		},
 		/// An auction has closed without selling
-		AuctionClosed {
+		AuctionClose {
 			series_id: SeriesId,
 			listing_id: ListingId,
 			reason: AuctionClosureReason,
 		},
 		/// A new highest bid was placed
 		Bid {
-			series_id: SeriesId,
+			tokens: Vec<TokenId>,
 			listing_id: ListingId,
 			amount: Balance,
+			bidder: T::AccountId,
 		},
 		/// An account has been registered as a marketplace
-		RegisteredMarketplace {
+		RegisterMarketplace {
 			account: T::AccountId,
 			entitlement: Permill,
 			marketplace_id: MarketplaceId,
 		},
 		/// An offer has been made on an NFT
-		OfferMade {
+		MakeOffer {
 			offer_id: OfferId,
 			amount: Balance,
 			asset_id: AssetId,
@@ -273,9 +289,14 @@ pub mod pallet {
 			buyer: T::AccountId,
 		},
 		/// An offer has been cancelled
-		OfferCancelled { offer_id: OfferId },
+		CancelOffer { offer_id: OfferId, token_id: TokenId },
 		/// An offer has been cancelled
-		OfferAccepted { offer_id: OfferId, amount: Balance },
+		AcceptOffer {
+			offer_id: OfferId,
+			token_id: TokenId,
+			amount: Balance,
+			asset_id: AssetId,
+		},
 	}
 
 	#[pallet::error]
@@ -381,7 +402,7 @@ pub mod pallet {
 				Error::<T>::NoAvailableIds
 			);
 			<RegisteredMarketplaces<T>>::insert(&marketplace_id, marketplace);
-			Self::deposit_event(Event::<T>::RegisteredMarketplace {
+			Self::deposit_event(Event::<T>::RegisterMarketplace {
 				account: marketplace_account,
 				entitlement,
 				marketplace_id,
@@ -665,10 +686,12 @@ pub mod pallet {
 			<Listings<T>>::insert(listing_id, listing);
 			<NextListingId<T>>::mutate(|i| *i += 1);
 
-			Self::deposit_event(Event::<T>::FixedPriceSaleListed {
-				series_id: bundle_series_id,
+			Self::deposit_event(Event::<T>::ListFixedPriceSale {
+				tokens,
 				listing_id,
 				marketplace_id,
+				price: fixed_price,
+				seller: origin,
 			});
 			Ok(())
 		}
@@ -741,10 +764,12 @@ pub mod pallet {
 				}
 				Self::remove_fixed_price_listing(listing_id);
 
-				Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
-					series_id,
+				Self::deposit_event(Event::<T>::CompleteFixedPriceSale {
+					tokens: listing.tokens,
 					listing_id,
+					price: listing.fixed_price,
 					buyer: origin,
+					seller: listing.seller,
 				});
 			} else {
 				return Err(Error::<T>::NotForFixedPriceSale.into());
@@ -818,9 +843,12 @@ pub mod pallet {
 			<NextListingId<T>>::mutate(|i| *i += 1);
 
 			Self::deposit_event(Event::<T>::AuctionOpen {
-				series_id: bundle_series_id,
+				tokens,
+				payment_asset,
+				reserve_price,
 				listing_id,
 				marketplace_id,
+				seller: origin,
 			});
 			Ok(())
 		}
@@ -864,7 +892,7 @@ pub mod pallet {
 						// replace old bid
 						T::MultiCurrency::unreserve(&current_bid.0, listing.payment_asset, current_bid.1);
 					}
-					*maybe_current_bid = Some((origin, amount))
+					*maybe_current_bid = Some((origin.clone(), amount))
 				});
 
 				// Auto extend auction if bid is made within certain amount of time of auction duration
@@ -879,11 +907,11 @@ pub mod pallet {
 					Listings::<T>::insert(listing_id, Listing::Auction(listing.clone()));
 				}
 
-				let listing_series_id = listing.tokens[0].0;
 				Self::deposit_event(Event::<T>::Bid {
-					series_id: listing_series_id,
+					tokens: listing.tokens,
 					listing_id,
 					amount,
+					bidder: origin,
 				});
 				Ok(())
 			} else {
@@ -909,7 +937,11 @@ pub mod pallet {
 					let series_id = sale.tokens[0].0;
 					<OpenSeriesListings<T>>::remove(series_id, listing_id);
 
-					Self::deposit_event(Event::<T>::FixedPriceSaleClosed { series_id, listing_id });
+					Self::deposit_event(Event::<T>::CloseFixedPriceSale {
+						tokens: sale.tokens,
+						listing_id,
+						reason: FixedPriceClosureReason::VendorCancelled,
+					});
 				}
 				Some(Listing::<T>::Auction(auction)) => {
 					ensure!(auction.seller == origin, Error::<T>::NoPermission);
@@ -925,7 +957,7 @@ pub mod pallet {
 					let series_id = auction.tokens[0].0;
 					<OpenSeriesListings<T>>::remove(series_id, listing_id);
 
-					Self::deposit_event(Event::<T>::AuctionClosed {
+					Self::deposit_event(Event::<T>::AuctionClose {
 						series_id,
 						listing_id,
 						reason: AuctionClosureReason::VendorCancelled,
@@ -950,10 +982,13 @@ pub mod pallet {
 					ensure!(sale.seller == origin, Error::<T>::NoPermission);
 
 					sale.fixed_price = new_price;
-					let series_id = sale.tokens[0].0;
 
-					<Listings<T>>::insert(listing_id, Listing::<T>::FixedPrice(sale));
-					Self::deposit_event(Event::<T>::FixedPriceSalePriceUpdated { series_id, listing_id });
+					<Listings<T>>::insert(listing_id, Listing::<T>::FixedPrice(sale.clone()));
+					Self::deposit_event(Event::<T>::UpdateFixedPriceSalePrice {
+						tokens: sale.tokens,
+						listing_id,
+						new_price,
+					});
 					Ok(())
 				}
 				Some(Listing::<T>::Auction(_)) => Err(Error::<T>::NotForFixedPriceSale.into()),
@@ -1017,7 +1052,7 @@ pub mod pallet {
 			<Offers<T>>::insert(offer_id, new_offer);
 			<NextOfferId<T>>::mutate(|i| *i += 1);
 
-			Self::deposit_event(Event::<T>::OfferMade {
+			Self::deposit_event(Event::<T>::MakeOffer {
 				offer_id,
 				amount,
 				asset_id,
@@ -1043,7 +1078,10 @@ pub mod pallet {
 								offers.binary_search(&offer_id).map(|idx| offers.remove(idx)).unwrap();
 							}
 						});
-						Self::deposit_event(Event::<T>::OfferCancelled { offer_id });
+						Self::deposit_event(Event::<T>::CancelOffer {
+							offer_id,
+							token_id: offer.token_id,
+						});
 						Ok(())
 					}
 				}
@@ -1084,9 +1122,11 @@ pub mod pallet {
 								offers.binary_search(&offer_id).map(|idx| offers.remove(idx)).unwrap();
 							}
 						});
-						Self::deposit_event(Event::<T>::OfferAccepted {
+						Self::deposit_event(Event::<T>::AcceptOffer {
 							offer_id,
+							token_id: offer.token_id,
 							amount: offer.amount,
+							asset_id: offer.asset_id,
 						});
 						Ok(())
 					}
@@ -1321,9 +1361,10 @@ impl<T: Config> Pallet<T> {
 					let listing_series_id: SeriesId = listing.tokens[0].0;
 					OpenSeriesListings::<T>::remove(listing_series_id, listing_id);
 
-					Self::deposit_event(Event::<T>::FixedPriceSaleClosed {
-						series_id: listing_series_id,
+					Self::deposit_event(Event::<T>::CloseFixedPriceSale {
+						tokens: listing.tokens,
 						listing_id,
+						reason: FixedPriceClosureReason::Expired,
 					});
 				}
 				Some(Listing::Auction(listing)) => {
@@ -1349,7 +1390,7 @@ impl<T: Config> Pallet<T> {
 							T::MultiCurrency::unreserve(&winner, listing.payment_asset, hammer_price);
 
 							// listing metadata is removed by now.
-							Self::deposit_event(Event::<T>::AuctionClosed {
+							Self::deposit_event(Event::<T>::AuctionClose {
 								series_id: listing_series_id,
 								listing_id,
 								reason: AuctionClosureReason::SettlementFailed,
@@ -1367,7 +1408,7 @@ impl<T: Config> Pallet<T> {
 					} else {
 						// normal closure, no acceptable bids
 						// listing metadata is removed by now.
-						Self::deposit_event(Event::<T>::AuctionClosed {
+						Self::deposit_event(Event::<T>::AuctionClose {
 							series_id: listing_series_id,
 							listing_id,
 							reason: AuctionClosureReason::ExpiredNoBids,

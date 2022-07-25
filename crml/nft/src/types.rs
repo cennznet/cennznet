@@ -290,6 +290,15 @@ pub enum AuctionClosureReason {
 	VendorCancelled,
 }
 
+/// Reason for a fixed price closure
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+pub enum FixedPriceClosureReason {
+	/// Listing was cancelled by the vendor
+	VendorCancelled,
+	/// Listing expired
+	Expired,
+}
+
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
 #[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct RoyaltiesSchedule<AccountId> {
