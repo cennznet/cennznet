@@ -57,13 +57,20 @@ fn setup_context(collection_id: CollectionId, series_id: SeriesId, caller: H160)
 	(address, context)
 }
 
-fn setup_input_data(serial_number: SerialNumber, to: H160, from: H160, selector: Action) -> Vec<u8> {
+fn setup_input_data(serial_number: SerialNumber, to: H160, from: Option<H160>, selector: Action) -> Vec<u8> {
 	// Write to input data
-	EvmDataWriter::new_with_selector(selector)
-		.write::<Address>(to.into())
-		.write::<Address>(from.into())
-		.write::<U256>(serial_number.into())
-		.build()
+	match selector {
+		Action::TransferFrom => EvmDataWriter::new_with_selector(selector)
+			.write::<Address>(to.into())
+			.write::<Address>(from.unwrap().into())
+			.write::<U256>(serial_number.into())
+			.build(),
+		Action::Approve => EvmDataWriter::new_with_selector(selector)
+			.write::<Address>(to.into())
+			.write::<U256>(serial_number.into())
+			.build(),
+		_ => vec![],
+	}
 }
 
 #[test]
@@ -76,7 +83,12 @@ fn erc721_transfer_from() {
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
 		let (address, context) = setup_context(collection_id, series_id, token_owner_eth);
-		let input_data = setup_input_data(serial_number, new_owner_eth, token_owner_eth, Action::TransferFrom);
+		let input_data = setup_input_data(
+			serial_number,
+			new_owner_eth,
+			Some(token_owner_eth),
+			Action::TransferFrom,
+		);
 		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
 		assert_eq!(
@@ -107,7 +119,12 @@ fn erc721_transfer_from_caller_not_approved_should_fail() {
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
 		let (address, context) = setup_context(collection_id, series_id, new_owner_eth);
-		let input_data = setup_input_data(serial_number, new_owner_eth, token_owner_eth, Action::TransferFrom);
+		let input_data = setup_input_data(
+			serial_number,
+			new_owner_eth,
+			Some(token_owner_eth),
+			Action::TransferFrom,
+		);
 		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
 		assert!(precompile_set
@@ -137,7 +154,7 @@ fn erc721_approve_and_transfer() {
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
 		let (address, context) = setup_context(collection_id, series_id, token_owner_eth);
-		let input_data = setup_input_data(serial_number, approved_account_eth, token_owner_eth, Action::Approve);
+		let input_data = setup_input_data(serial_number, approved_account_eth, None, Action::Approve);
 		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
 		assert_ok!(precompile_set
@@ -157,7 +174,12 @@ fn erc721_approve_and_transfer() {
 
 		// Transfer NFT from approved account
 		let (address, context) = setup_context(collection_id, series_id, approved_account_eth);
-		let input_data = setup_input_data(serial_number, new_owner_eth, token_owner_eth, Action::TransferFrom);
+		let input_data = setup_input_data(
+			serial_number,
+			new_owner_eth,
+			Some(token_owner_eth),
+			Action::TransferFrom,
+		);
 		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
 		assert_ok!(precompile_set
@@ -181,36 +203,6 @@ fn erc721_approve_and_transfer() {
 }
 
 #[test]
-fn erc721_approve_caller_not_from_should_fail() {
-	ExtBuilder::default().initial_balance(1).build().execute_with(|| {
-		let token_owner_eth: H160 = b"test2000000000000000".into();
-		let approved_account_eth: H160 = b"test3000000000000000".into();
-		let token_owner: AccountId = PrefixedAddressMapping::into_account_id(token_owner_eth.clone());
-
-		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
-		let (address, context) = setup_context(collection_id, series_id, approved_account_eth);
-		let input_data = setup_input_data(serial_number, approved_account_eth, token_owner_eth, Action::Approve);
-		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
-
-		assert!(precompile_set
-			.execute(
-				address.into(),
-				&input_data, //Build input data to convert to bytes
-				None,
-				&context,
-				false,
-			)
-			.unwrap()
-			.is_err());
-
-		assert_eq!(
-			TokenApprovals::erc721_approvals((collection_id, series_id, serial_number)),
-			H160::default()
-		);
-	})
-}
-
-#[test]
 fn erc721_approve_caller_not_token_owner_should_fail() {
 	ExtBuilder::default().initial_balance(1).build().execute_with(|| {
 		let token_owner_eth: H160 = b"test2000000000000000".into();
@@ -220,7 +212,7 @@ fn erc721_approve_caller_not_token_owner_should_fail() {
 
 		let (collection_id, series_id, serial_number) = setup_nft_series(token_owner.clone());
 		let (address, context) = setup_context(collection_id, series_id, approved_account_eth);
-		let input_data = setup_input_data(serial_number, new_owner_eth, approved_account_eth, Action::Approve);
+		let input_data = setup_input_data(serial_number, new_owner_eth, None, Action::Approve);
 		let precompile_set = Erc721PrecompileSet::<Runtime>::new();
 
 		assert!(precompile_set
