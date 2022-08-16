@@ -318,10 +318,9 @@ where
 		gasometer.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		input.expect_arguments(gasometer, 3)?;
+		input.expect_arguments(gasometer, 2)?;
 
 		let to: H160 = input.read::<Address>(gasometer)?.into();
-		let from: H160 = input.read::<Address>(gasometer)?.into();
 		let serial_number = input.read::<U256>(gasometer)?;
 
 		// For now we only support Ids < u32 max
@@ -332,21 +331,17 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		if context.caller == from {
-			let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
-			// Dispatch call (if enough gas).
-			RuntimeHelper::<Runtime>::try_dispatch(
-				None.into(),
-				crml_token_approvals::Call::<Runtime>::erc721_approval {
-					caller: from,
-					operator_account: to,
-					token_id,
-				},
-				gasometer,
-			)?;
-		} else {
-			return Err(error("caller must be from").into());
-		};
+		let token_id: TokenId = (series_id_parts.0, series_id_parts.1, serial_number);
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			None.into(),
+			crml_token_approvals::Call::<Runtime>::erc721_approval {
+				caller: context.caller,
+				operator_account: to,
+				token_id,
+			},
+			gasometer,
+		)?;
 
 		// Build output.
 		Ok(PrecompileOutput {
