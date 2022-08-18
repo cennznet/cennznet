@@ -260,8 +260,8 @@ where
 		// Parse input.
 		input.expect_arguments(gasometer, 3)?;
 
-		let to: H160 = input.read::<Address>(gasometer)?.into();
 		let from: H160 = input.read::<Address>(gasometer)?.into();
+		let to: H160 = input.read::<Address>(gasometer)?.into();
 		let serial_number = input.read::<U256>(gasometer)?;
 
 		// For now we only support Ids < u32 max

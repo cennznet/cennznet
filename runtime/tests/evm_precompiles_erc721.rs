@@ -61,8 +61,8 @@ fn setup_input_data(serial_number: SerialNumber, to: H160, from: Option<H160>, s
 	// Write to input data
 	match selector {
 		Action::TransferFrom => EvmDataWriter::new_with_selector(selector)
-			.write::<Address>(to.into())
 			.write::<Address>(from.unwrap().into())
+			.write::<Address>(to.into())
 			.write::<U256>(serial_number.into())
 			.build(),
 		Action::Approve => EvmDataWriter::new_with_selector(selector)
