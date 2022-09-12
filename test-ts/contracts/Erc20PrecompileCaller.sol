@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.14;
 
 // Calls GA CENNZ precompile
-contract PrecompileCaller {
+contract Erc20PrecompileCaller {
     // derived CENNZ token address on testnets (AssetId 16000)
     // cccccccc (prefix) + 00003e80 (assetId) + padding
     // run through web3.utils.toChecksumAddress(..)
