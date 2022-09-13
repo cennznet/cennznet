@@ -6,7 +6,7 @@ import { cryptoWaitReady } from '@polkadot/util-crypto';
 import { expect, use } from 'chai';
 import { solidity } from 'ethereum-waffle';
 import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
-import PrecompileCaller from '../artifacts/contracts/PrecompileCaller.sol/PrecompileCaller.json';
+import PrecompileCaller from '../artifacts/contracts/Erc20PrecompileCaller.sol/Erc20PrecompileCaller.json';
 
 use(solidity);
 

@@ -9,22 +9,35 @@
   "private": false,
   "scripts": {
     "build": "hardhat compile",
-    "test": "mocha -r ts-node/register 'test/**/*.test.ts'",
-    "test:state-oracle": "mocha -r ts-node/register 'test/stateOraclePrecompile.test.ts'"
+    "test": "hardhat test",
+    "test:erc721": "hardhat test test/erc721Precompile.test.ts",
+    "test:erc20": "hardhat test test/erc20Precompile.test.ts",
+    "test:state-oracle": "hardhat test test/stateOraclePrecompile.test.ts"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.3",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
+    "@nomicfoundation/hardhat-toolbox": "^1.0.2",
+    "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "@openzeppelin/contracts": "^4.5.0",
-    "@types/mocha": "^9.1.0",
+    "@typechain/hardhat": "^6.1.2",
+    "@types/chai": "^4.3.3",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.7.16",
     "chai": "^4.3.6",
     "ethereum-waffle": "^4.0.0-alpha.0",
-    "hardhat": "^2.9.1",
+    "hardhat": "^2.11.1",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.2",
     "ts-node": "^10.7.0",
     "web3": "^1.7.1"
   },
   "dependencies": {
     "@cennznet/api": "^2.1.1-alpha.2",
     "@nomiclabs/hardhat-ethers": "^2.0.6",
+    "babel": "^6.23.0",
     "dotenv": "^16.0.1",
+    "mocha": "^10.0.0",
     "typescript": "^4.6.4"
   }
 }

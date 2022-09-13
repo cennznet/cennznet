@@ -21,7 +21,7 @@ use cennznet_primitives::types::{AssetId, CollectionId, SeriesId, TokenCount};
 use crml_nft::{weights::WeightInfo, MetadataScheme, RoyaltiesSchedule};
 use fp_evm::{Context, ExitSucceed, PrecompileOutput};
 use frame_support::{dispatch::PostDispatchInfo, weights::GetDispatchInfo};
-use pallet_evm::{AddressMapping, ExitRevert, Precompile};
+use pallet_evm::{AddressMapping, ExitRevert, GasWeightMapping, Precompile};
 use pallet_evm_precompiles_erc20::Erc20IdConversion;
 use precompile_utils::{
 	error, Address, Bytes, EvmDataReader, EvmDataWriter, EvmResult, FunctionModifier, Gasometer, PrecompileFailure,
@@ -146,7 +146,9 @@ where
 		};
 
 		let origin = T::AddressMapping::into_account_id(*caller);
-		gasometer.record_cost(<T as crml_nft::Config>::WeightInfo::mint_series(0))?;
+		gasometer.record_cost(<T as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
+			<T as crml_nft::Config>::WeightInfo::mint_series(0),
+		))?;
 
 		// Dispatch call (if enough gas).
 		let series_id =
