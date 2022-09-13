@@ -9,8 +9,10 @@
   "private": false,
   "scripts": {
     "build": "hardhat compile",
-    "test": "mocha -r ts-node/register 'test/**/*.test.ts'",
-    "test:state-oracle": "mocha -r ts-node/register 'test/stateOraclePrecompile.test.ts'"
+    "test": "hardhat test",
+    "test:erc721": "hardhat test test/erc721Precompile.test.ts",
+    "test:erc20": "hardhat test test/erc20Precompile.test.ts",
+    "test:state-oracle": "hardhat test test/stateOraclePrecompile.test.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.3",

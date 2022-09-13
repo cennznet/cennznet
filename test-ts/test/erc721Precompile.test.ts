@@ -1,18 +1,18 @@
 import { JsonRpcProvider, Provider } from '@ethersproject/providers';
 import web3 from 'web3';
 import { Api } from '@cennznet/api';
-import { Keyring } from '@polkadot/keyring';
-import { cryptoWaitReady } from '@polkadot/util-crypto';
+import {cvmToAddress} from "@cennznet/types/utils";
+import { cryptoWaitReady, base64Encode } from '@polkadot/util-crypto';
 import { expect, use } from 'chai';
 import { solidity } from 'ethereum-waffle';
-import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
+import {Contract, ContractFactory, Wallet} from 'ethers';
 import ERC721PrecompileCaller from '../artifacts/contracts/Erc721PrecompileCaller.sol/Erc721PrecompileCaller.json';
-import { AddressOrPair } from '@cennznet/api/types';
 
 use(solidity);
 
-const metadataPath = "example.com/nft/metadata";
+const metadataPath = {"Https": "example.com/nft/metadata" }
 const name = "test-collection";
+const initial_balance = 10;
 const erc721Abi = [
     'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
     'event Approval(address indexed owner, address indexed approved, uint256 tokenId)',
@@ -31,118 +31,144 @@ const erc721Abi = [
     'function tokenURI(uint256 tokenId) public view returns (string memory)',
 ];
 
-
 describe('NFT precompiles', () => {
     let api: Api;
-    let keyring: Keyring;
-    let alice, bob: AddressOrPair;
     let cennznetSigner: Wallet;
     let cennznetProvider: Provider;
     let precompileCaller: Contract;
     let nftContract: Contract;
-    let nftProxyContract: Contract;
     let globalCollectionId: any;
-    // Address for NFT collection
-    let nftPrecompileAddress: string = "0xAAAAAAAA00000000000000000000000000000000";
-    // const cennzTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00003e80000000000000000000000000');
+    let nftPrecompileAddress: string;
 
     before(async () => {
         const providerUri = 'http://localhost:9933';
         const wsProvider = 'ws://localhost:9944';
         cennznetProvider = new JsonRpcProvider(providerUri);
         cennznetSigner = new Wallet('0xab3fdbe7eca16f38e9f5ee81b9e23d01ef251ba4ae19225783e5921a4a8c5564').connect(cennznetProvider); // 'development' seed
-        console.log(`signer address=${cennznetSigner.address}`);
 
         // Connect to CENNZnet local node
         await cryptoWaitReady();
         api = await Api.create({provider: wsProvider});
-        keyring = new Keyring({ type: 'sr25519' });
-        alice = keyring.addFromUri('//Alice');
-        bob = keyring.addFromUri('//Bob');
-        console.log(`Connected to CENNZnet network ${wsProvider}`);
 
-
-        // Create NFT collection using runtime, bob is collection owner
+        // createCollection with Ethereum Address
+        const cennznetAddress = cvmToAddress(cennznetSigner.address);
+        let nonce = await api.rpc.system.accountNextIndex(cennznetAddress);
+        let call = api.tx.nft.createCollection(name, null);
+        let payload = api.registry.createType('EthWalletCall', { call: call, nonce }).toHex();
+        let encodedPayload = `data:application/octet-stream;base64,${base64Encode(payload)}`;
+        let signature = await cennznetSigner.signMessage(encodedPayload);
+        // Broadcast the tx to CENNZnet
         await new Promise<void>((resolve) => {
-            api.tx.nft
-                .createCollection(name, null)
-                .signAndSend(bob, async ({status, events}) => {
-                    if (status && status.isInBlock) {
-                        events.forEach(({event: {data, method}}) => {
-                            if (method == 'CreateCollection') {
-                                globalCollectionId = (data.toJSON() as any)[0];
-                                console.log(`CollectionId: ${globalCollectionId}`);
-                                resolve();
-                            }
-                        });
-                    }
-                });
+            api.tx.ethWallet.call(call, cennznetSigner.address, signature).send(async ({status, events}) => {
+                if (status && status.isInBlock) {
+                    events.forEach(({event: {data, method}}) => {
+                        if (method == 'CreateCollection') {
+                            globalCollectionId = (data.toJSON() as any)[0];
+                            const collection_id_hex = (+globalCollectionId).toString(16).padStart(8, '0');
+                            // Assume 0 series id for first series in collection
+                            const series_id_hex = (+0).toString(16).padStart(8, '0');
+                            nftPrecompileAddress = web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}${series_id_hex}0000000000000000`);
+                            nftContract = new Contract(nftPrecompileAddress, erc721Abi, cennznetSigner);
+                            resolve();
+                        }
+                    });
+                }
+            });
         });
 
-        const collection_id_hex = (+globalCollectionId).toString(16).padStart(8, '0');
-        // Assume 0 series id for first series in collection
-        const series_id_hex = (+0).toString(16).padStart(8, '0');
-        nftPrecompileAddress = web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}${series_id_hex}0000000000000000`);
-        nftContract = new Contract(nftPrecompileAddress, erc721Abi, cennznetSigner);
-        console.log(`NFT Precompile address: ${nftPrecompileAddress}`);
-
+        // mintSeries with Ethereum Address
+        nonce = await api.rpc.system.accountNextIndex(cennznetAddress);
+        call = api.tx.nft.mintSeries(globalCollectionId, initial_balance, null, metadataPath, null);
+        payload = api.registry.createType('EthWalletCall', { call: call, nonce }).toHex();
+        encodedPayload = `data:application/octet-stream;base64,${base64Encode(payload)}`;
+        signature = await cennznetSigner.signMessage(encodedPayload);
+        // Broadcast the tx to CENNZnet
         await new Promise<void>((resolve) => {
-            api.tx.nft.mintSeries(globalCollectionId, 10, null, metadataPath, null)
-                .signAndSend(bob, async ({status, events}) => {
-                    if (status && status.isInBlock) {
-                        events.forEach(({event: {data, method}}) => {
-                            if (method == 'CreateSeries') {
-                                const collectionId = (data.toJSON() as any)[0]
-                                let seriesId = (data.toJSON() as any)[1];
+            api.tx.ethWallet.call(call, cennznetSigner.address, signature).send(async ({status, events}) => {
+                if (status && status.isInBlock) {
+                    resolve();
+                }
+            });
+        });
 
-                                const collection_id_hex = (+collectionId).toString(16).padStart(8, '0');
-                                const series_id_hex = (+seriesId).toString(16).padStart(8, '0');
-
-                                nftPrecompileAddress = web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}${series_id_hex}0000000000000000`);
-                                nftContract = new Contract(nftPrecompileAddress, erc721Abi, cennznetSigner);
-
-                                console.log(`NFT Precompile address: ${nftPrecompileAddress}`);
-                                resolve();
-                            }
-                        });
-                    }
-                });
+        // set series name with Ethereum Address
+        nonce = await api.rpc.system.accountNextIndex(cennznetAddress);
+        call = api.tx.nft.setSeriesName(globalCollectionId, 0, name);
+        payload = api.registry.createType('EthWalletCall', { call: call, nonce }).toHex();
+        encodedPayload = `data:application/octet-stream;base64,${base64Encode(payload)}`;
+        signature = await cennznetSigner.signMessage(encodedPayload);
+        // Broadcast the tx to CENNZnet
+        await new Promise<void>((resolve) => {
+            api.tx.ethWallet.call(call, cennznetSigner.address, signature).send(async ({status, events}) => {
+                if (status && status.isInBlock) {
+                    resolve();
+                }
+            });
         });
     });
 
-    it('approve and transferFrom via EVM', async () => {
-        console.log(`dev account CPAY=${(await cennznetSigner.getBalance())}`);
+    it('name, symbol, ownerOf, tokenURI, balanceOf', async () => {
+        expect(
+            await nftContract.name()
+        ).to.equal(name);
 
+        expect(
+            await nftContract.symbol()
+        ).to.equal(name);
+
+        expect(
+            await nftContract.ownerOf(1)
+        ).to.equal(cennznetSigner.address);
+
+        expect(
+            await nftContract.balanceOf(cennznetSigner.address)
+        ).to.equal(initial_balance);
+
+        expect(
+            await nftContract.tokenURI(1)
+        ).to.equal("https://example.com/nft/metadata/1.json");
+    })
+
+    it('transferFrom owner', async () => {
+        const receiverAddress = await Wallet.createRandom().getAddress();
+        const serial_number = 0;
+
+        // Transfer serial_number 0 to receiverAddress
+        const transfer = await nftContract.connect(cennznetSigner).transferFrom(cennznetSigner.address, receiverAddress, serial_number)
+        await transfer.wait();
+
+        // Receiver_address now owner of serial_number 1
+        expect(
+            await nftContract.ownerOf(serial_number)
+        ).to.equal(receiverAddress);
+        expect(
+            await nftContract.balanceOf(receiverAddress)
+        ).to.equal(1);
+    })
+
+    it('approve and transferFrom via EVM', async () => {
+        // Deploy test contract
         let factory = new ContractFactory(ERC721PrecompileCaller.abi, ERC721PrecompileCaller.bytecode, cennznetSigner);
         precompileCaller = await factory.deploy();
-        console.log(`contract address=${precompileCaller.address}`);
         const receiverAddress = await Wallet.createRandom().getAddress();
         const serial_number = 3;
-        await new Promise(r => setTimeout(r, 5000));
 
-        console.log("Approving");
+        // Approve contract address for transfer of serial_number
         await nftContract.approve(precompileCaller.address, serial_number, {gasLimit: 50000})
-
-        await new Promise(r => setTimeout(r, 5000));
-
-        console.log(`Testing TransferFrom`);
 
         // Transfer serial_number to receiverAddress
         const transfer = await precompileCaller
             .connect(cennznetSigner)
             .transferFromProxy(nftPrecompileAddress, cennznetSigner.address, receiverAddress, serial_number, {gasLimit: 50000});
-        await transfer.wait()
+        await transfer.wait();
 
-        // contract_address now owner of serial_number
+        // Check ownership of nft
         expect(
-            await precompileCaller.balanceOfProxy(receiverAddress)
+            await nftContract.balanceOf(receiverAddress)
         ).to.equal(1);
         expect(
-            await precompileCaller.ownerOfProxy(serial_number)
+            await nftContract.ownerOf(serial_number)
         ).to.equal(receiverAddress);
-
-
-    }).timeout(100000000000000);
-
+    })
 });
 
