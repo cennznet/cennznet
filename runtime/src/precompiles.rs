@@ -19,6 +19,7 @@ use pallet_evm_precompiles_erc721::{
 };
 use pallet_evm_precompiles_nft::NftPrecompile;
 use pallet_evm_precompiles_state_oracle::StateOraclePrecompile;
+use precompile_utils::Gasometer;
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 
 /// CENNZnet specific EVM precompiles
@@ -66,6 +67,13 @@ where
 		is_static: bool,
 	) -> Option<PrecompileResult> {
 		let routing_prefix = &address.to_fixed_bytes()[0..4];
+
+		// Filter known precompile addresses except Ethereum officials
+		if self.is_precompile(address) && address > hash(9) && address != context.address {
+			let gasometer = Gasometer::new(target_gas);
+			return Some(Err(gasometer.revert("cannot be called with DELEGATECALL or CALLCODE")));
+		}
+
 		match address {
 			// Ethereum precompiles:
 			a if a == hash(1) => Some(ECRecover::execute(input, target_gas, context, is_static)),
