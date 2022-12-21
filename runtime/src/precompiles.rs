@@ -69,10 +69,10 @@ where
 		let routing_prefix = &address.to_fixed_bytes()[0..4];
 
 		// Filter known precompile addresses except Ethereum officials
-		if self.is_precompile(address) && address > hash(9) && address != context.address {
-			let gasometer = Gasometer::new(target_gas);
-			return Some(Err(gasometer.revert("cannot be called with DELEGATECALL or CALLCODE")));
-		}
+		// if self.is_precompile(address) && address > hash(9) && address != context.address {
+		// 	let gasometer = Gasometer::new(target_gas);
+		// 	return Some(Err(gasometer.revert("cannot be called with DELEGATECALL or CALLCODE")));
+		// }
 
 		match address {
 			// Ethereum precompiles:
