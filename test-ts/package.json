@@ -10,7 +10,8 @@
   "scripts": {
     "build": "hardhat compile",
     "test": "mocha -r ts-node/register 'test/**/*.test.ts'",
-    "test:state-oracle": "mocha -r ts-node/register 'test/stateOraclePrecompile.test.ts'"
+    "test:state-oracle": "mocha -r ts-node/register 'test/stateOraclePrecompile.test.ts'",
+    "test:delegate-call": "mocha -r ts-node/register 'test/contractDelegateCall.test.ts' --network=cennznet"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^4.5.0",
