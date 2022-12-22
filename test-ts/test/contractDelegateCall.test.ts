@@ -10,7 +10,7 @@ import DelegateCallExploit from '../artifacts/contracts/DelegateCallExploit.sol/
 
 use(solidity);
 
-describe('GA precompiles', () => {
+describe('DelegateCall tests', () => {
     let api: Api;
     let keyring: Keyring;
     let alice, bob;
