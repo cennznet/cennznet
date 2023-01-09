@@ -17,7 +17,7 @@ RUN apt-get update && \
 ENV CARGO_HOME=/cennznet/.cargo
 RUN cargo build --release
 
-FROM debian:stretch-slim
+FROM debian:bullseye-slim
 LABEL maintainer="support@centrality.ai"
 
 RUN apt-get update && \
