@@ -1,18 +1,18 @@
 # Instructions 📖
 # - Ensure .env file with 'ETH_HTTP' value set for bridge connectivity
 # - `rm -rf ./data` to reset storage
-version: '3'
+version: "3"
 services:
   node-0:
-    image: cennznet/cennznet:2.0.0
+    image: cennznet/cennznet:2.1.2
+    container_name: node-0
     volumes:
-    - ./data/node-0:/mnt/data
+      - ./data/node-0:/mnt/data
     command:
-      - -l=ethy,babe=trace
       - --chain=/cennznet/genesis/rata.raw.json
       - --validator
       - --telemetry-url=ws://cennznet-telemetry.centrality.me:8000/submit 0
-      - --eth-http=${ETH_HTTP:-http://localhost:8545}
+      - --eth-http=https://ropsten.infura.io/v3/40b42862b7244346b51662be3d4fef34
       - --alice
       - --base-path=/mnt/data
       - --name=alice-${HOSTNAME:-localhost}-0
@@ -20,78 +20,97 @@ services:
       - --unsafe-rpc-external
       - --rpc-cors=all
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8
+      - --discover-local
+      - --allow-private-ipv4
+
     ports:
       - "9933:9933"
       - "9944:9944"
       - "30334:30333"
   node-1:
-    image: cennznet/cennznet:2.0.0
+    image: cennznet/cennznet:2.1.2
+    container_name: node-1
     volumes:
-    - ./data/node-1:/mnt/data
+      - ./data/node-1:/mnt/data
     command:
       - --chain=/cennznet/genesis/rata.raw.json
       - --validator
       - --telemetry-url=ws://cennznet-telemetry.centrality.me:8000/submit 0
-      - --eth-http=${ETH_HTTP:-http://localhost:8545}
+      - --eth-http=https://ropsten.infura.io/v3/40b42862b7244346b51662be3d4fef34
       - --bob
       - --base-path=/mnt/data
       - --name=bob-${HOSTNAME:-localhost}-1
       - --node-key=0000000000000000000000000000000000000000000000000000000000000002
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8
+      - --discover-local
+      - --allow-private-ipv4
+
     ports:
       - "30335:30333"
   node-2:
-    image: cennznet/cennznet:2.0.0
+    image: cennznet/cennznet:2.1.2
+    container_name: node-2
     volumes:
-    - ./data/node-2:/mnt/data
+      - ./data/node-2:/mnt/data
     command:
       - --chain=/cennznet/genesis/rata.raw.json
       - --validator
       - --telemetry-url=ws://cennznet-telemetry.centrality.me:8000/submit 0
-      - --eth-http=${ETH_HTTP:-http://localhost:8545}
+      - --eth-http=https://ropsten.infura.io/v3/40b42862b7244346b51662be3d4fef34
       - --charlie
       - --base-path=/mnt/data
       - --name=charlie-${HOSTNAME:-localhost}-2
       - --node-key=0000000000000000000000000000000000000000000000000000000000000003
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8
+      - --discover-local
+      - --allow-private-ipv4
+
     ports:
       - "30336:30333"
   node-3:
-    image: cennznet/cennznet:2.0.0
+    image: cennznet/cennznet:2.1.2
+    container_name: node-3
     volumes:
-    - ./data/node-3:/mnt/data
+      - ./data/node-3:/mnt/data
     command:
       - --chain=/cennznet/genesis/rata.raw.json
       - --validator
       - --telemetry-url=ws://cennznet-telemetry.centrality.me:8000/submit 0
-      - --eth-http=${ETH_HTTP:-http://localhost:8545}
+      - --eth-http=https://ropsten.infura.io/v3/40b42862b7244346b51662be3d4fef34
       - --dave
       - --base-path=/mnt/data
       - --name=dave-${HOSTNAME:-localhost}-3
       - --node-key=0000000000000000000000000000000000000000000000000000000000000004
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8
+      - --discover-local
+      - --allow-private-ipv4
+
     ports:
       - "30337:30333"
   node-4:
-    image: cennznet/cennznet:2.0.0
+    image: cennznet/cennznet:2.1.2
+    container_name: node-4
     volumes:
-    - ./data/node-4:/mnt/data
+      - ./data/node-4:/mnt/data
     command:
       - --chain=/cennznet/genesis/rata.raw.json
       - --validator
       - --telemetry-url=ws://cennznet-telemetry.centrality.me:8000/submit 0
-      - --eth-http=${ETH_HTTP:-http://localhost:8545}
+      - --eth-http=https://ropsten.infura.io/v3/40b42862b7244346b51662be3d4fef34
       - --eve
       - --base-path=/mnt/data
       - --name=eve-${HOSTNAME:-localhost}-4
       - --node-key=0000000000000000000000000000000000000000000000000000000000000005
       - --bootnodes=/dns4/node-5/tcp/30333/p2p/12D3KooWCjJYJPjLJmHH9Q7NGzQRZvN28xwZ4Rjsazf14sCr3uH8
+      - --discover-local
+      - --allow-private-ipv4
     ports:
       - "30338:30333"
   node-5:
-    image: cennznet/cennznet:2.0.0
+    image: cennznet/cennznet:2.1.2
+    container_name: node-5
     volumes:
-    - ./data/node-5:/mnt/data
+      - ./data/node-5:/mnt/data
     command:
       - --chain=/cennznet/genesis/rata.raw.json
       - --name=full-${HOSTNAME:-localhost}-5
@@ -99,5 +118,7 @@ services:
       - --node-key=8967bcbae338641d1102ff4465fda281f0bf6e9842702f3a992650d4855f5cd0
       - --ws-external
       - --rpc-external
+      - --discover-local
+      - --allow-private-ipv4
     ports:
       - "30339:30333"
